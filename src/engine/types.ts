@@ -119,6 +119,7 @@ export type EventType =
   | 'halftime'
   | 'fulltime'
   | 'possession-change'
+  | 'advance'
   | 'penalty-shootout';
 
 export interface MatchEvent {
@@ -150,6 +151,10 @@ export interface MatchReport {
   score: [number, number];
   /** Pênaltis (só no mata-mata empatado). */
   shootout?: [number, number];
+  /** Ids dos titulares iniciais de cada time, na ordem dos slots. */
+  starters: [string[], string[]];
+  /** true se houve prorrogação (91'-120'). */
+  extraTime: boolean;
   events: MatchEvent[];
   stats: [TeamMatchStats, TeamMatchStats];
   /** playerId -> nota 0..10. */
