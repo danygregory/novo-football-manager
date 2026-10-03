@@ -37,6 +37,8 @@ export interface TeamSetup {
   lineup: Lineup;
   /** IA ajusta tática e faz substituições sozinha. */
   ai: boolean;
+  /** Gols/jogo típicos da era (World.decades[].goalsPerMatchCompetitive); o jogo usa a média dos dois times. */
+  goalRate?: number;
 }
 
 export interface MatchOptions {
@@ -142,6 +144,8 @@ export class MatchSimulator {
   private lastAiMinute = 0;
   private starters: [string[], string[]];
   private seed: number;
+  /** Fator do ambiente de gols da era: divide-se entre mais posses e chances melhores. */
+  private eraFactor = 1;
 
   constructor(setups: [TeamSetup, TeamSetup], opts: MatchOptions) {
     this.params = { ...DEFAULT_PARAMS, ...opts.params };
@@ -152,6 +156,9 @@ export class MatchSimulator {
     const k = this.params.k;
     const adv = this.params.advance0;
     const b = (p: number) => Math.pow(p / (1 - p), 1 / k);
+    const g0 = setups[0].goalRate ?? this.params.baseGoalRate;
+    const g1 = setups[1].goalRate ?? this.params.baseGoalRate;
+    this.eraFactor = Math.pow(clamp((g0 + g1) / 2 / this.params.baseGoalRate, 0.5, 2), this.params.eraExp);
     this.biasDef = { DEF: b(adv.DEF), MID: b(adv.MID), ATT: b(adv.ATT) };
     this.sides = [this.makeSide(setups[0]), this.makeSide(setups[1])];
     this.starters = [this.sides[0].setup.lineup.starters.slice(), this.sides[1].setup.lineup.starters.slice()];
@@ -400,7 +407,7 @@ export class MatchSimulator {
     const sa = this.sectorsOf(aSide);
     const sd = this.sectorsOf(dSide);
     const tempoAvg = (a.tactics.tempo + d.tactics.tempo) / 2;
-    const dur = (this.params.stepMinutes / (0.8 + 0.4 * tempoAvg)) * (this.ball.mode === 'build' ? 1 : 0.6);
+    const dur = (this.params.stepMinutes / this.eraFactor / (0.8 + 0.4 * tempoAvg)) * (this.ball.mode === 'build' ? 1 : 0.6);
     this.clock += dur;
     a.stats.possTime += dur;
 
@@ -453,7 +460,7 @@ export class MatchSimulator {
     if (win) {
       if (next === 'BOX') {
         const type: ShotType = this.ball.mode === 'build' ? (this.rng.chance(0.22) ? 'cruzamento' : 'trabalhada') : 'contra-ataque';
-        const quality = clamp(Math.pow(A / B, 0.5), 0.65, 1.5);
+        const quality = clamp(Math.pow(A / B, this.params.qualityExp), 0.5, 2);
         this.shoot(aSide, type, quality);
       } else {
         this.ball = { team: aSide, zone: next, mode: 'build' };
@@ -549,7 +556,7 @@ export class MatchSimulator {
     const assister = isPen || type === 'bola-parada' ? undefined : this.pickPlayer(side, (x) => (x === shooter ? 0 : ASSIST_SLOT_WEIGHT[x.slot] * Math.pow(Math.max(1, x.p.attrs.passe), 2)));
     const keeper = D.players.find((x) => x.onPitch && x.slot === 'GK');
 
-    const xg = clamp(this.params.xg[type] * (isPen ? 1 : quality), 0.01, 0.95);
+    const xg = clamp(this.params.xg[type] * (isPen ? 1 : quality * this.eraFactor), 0.01, 0.95);
     const f = (x: PState) => (1 - this.params.fatigueImpact) + this.params.fatigueImpact * (x.cond / 100);
     const fin = shooter.p.attrs.finalizacao * f(shooter) * fit(shooter.p, shooter.slot);
     const gk = keeper ? keeper.p.attrs.goleiro * f(keeper) : 20;

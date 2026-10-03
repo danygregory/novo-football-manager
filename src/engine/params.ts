@@ -4,6 +4,12 @@ export interface Params {
   k: number;
   /** Probabilidade de avançar de zona entre times iguais (viram viés multiplicativo por zona). */
   advance0: { DEF: number; MID: number; ATT: number };
+  /** Média de gols por jogo que o motor produz com goalRate neutro; o ambiente da era escala a partir dela. */
+  baseGoalRate: number;
+  /** Expoente do ambiente de gols da era (0,5 = divide igualmente entre posses e qualidade das chances). */
+  eraExp: number;
+  /** Expoente da vantagem de qualidade (ataque/defesa) sobre o xG das chances. */
+  qualityExp: number;
   /** Minutos simulados por passo (antes do ajuste de ritmo). */
   stepMinutes: number;
   /** Chance base de contra-ataque após perda de posse no meio/ataque. */
@@ -32,20 +38,23 @@ export interface Params {
 }
 
 export const DEFAULT_PARAMS: Params = {
-  k: 2,
-  advance0: { DEF: 0.78, MID: 0.62, ATT: 0.42 },
-  stepMinutes: 0.4,
-  counterBase: 0.1,
-  longBallBase: 0.1,
+  k: 1.479,
+  advance0: { DEF: 0.92, MID: 0.609, ATT: 0.42 },
+  baseGoalRate: 2.65,
+  eraExp: 0.732,
+  qualityExp: 0.495,
+  stepMinutes: 0.4122,
+  counterBase: 0.0891,
+  longBallBase: 0.1188,
   longBall0: 0.3,
-  xg: { trabalhada: 0.11, 'contra-ataque': 0.2, cruzamento: 0.075, 'bola-parada': 0.06, penalti: 0.76 },
+  xg: { trabalhada: 0.0801, 'contra-ataque': 0.1459, cruzamento: 0.0546, 'bola-parada': 0.0437, penalti: 0.76 },
   foulBase: 0.1,
   yellowPerFoul: 0.16,
   redPerFoul: 0.006,
   penaltyPerBoxFoul: 0.12,
   freeKickShot: 0.5,
   cornerAfterSave: 0.25,
-  conv: { fin: 65, gk: 60, slope: 0.035 },
+  conv: { fin: 65, gk: 60, slope: 0.0095 },
   fatigue: { base: 0.08, press: 0.12, tempo: 0.06, line: 0.03 },
   fatigueImpact: 0.3,
 };

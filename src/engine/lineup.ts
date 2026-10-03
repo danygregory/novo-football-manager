@@ -1,8 +1,26 @@
 import { FORMATION_SLOTS, slotPosition } from './formations';
 import { overall } from './player';
-import type { Formation, Lineup, Player, Position, Slot, Tactics } from './types';
+import type { Formation, Lineup, PlayStyle, Player, Position, Slot, Tactics } from './types';
 
 export const DEFAULT_TACTICS: Tactics = { formation: '4-4-2', pressing: 0.5, lineHeight: 0.5, tempo: 0.5 };
+
+/** Tática padrão da IA a partir do estilo de jogo da seleção-era. */
+export function tacticsForStyle(style: PlayStyle): Tactics {
+  switch (style) {
+    case 'ofensivo':
+      return { formation: '4-3-3', pressing: 0.6, lineHeight: 0.6, tempo: 0.65 };
+    case 'retranca':
+      return { formation: '5-4-1', pressing: 0.35, lineHeight: 0.3, tempo: 0.35 };
+    case 'posse':
+      return { formation: '4-3-3', pressing: 0.55, lineHeight: 0.55, tempo: 0.4 };
+    case 'contra-ataque':
+      return { formation: '4-4-2', pressing: 0.35, lineHeight: 0.3, tempo: 0.7 };
+    case 'jogo-direto':
+      return { formation: '4-4-2', pressing: 0.4, lineHeight: 0.5, tempo: 0.8 };
+    default:
+      return { ...DEFAULT_TACTICS };
+  }
+}
 
 const ADJACENT: Record<Position, Position[]> = { GK: [], DEF: ['MID'], MID: ['DEF', 'FWD'], FWD: ['MID'] };
 
