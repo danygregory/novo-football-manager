@@ -6,10 +6,10 @@
 
 | Métrica | Alvo | Resultado (20.000 jogos) |
 | --- | --- | --- |
-| Gols por jogo | 2,5 a 2,8 | 2,58 |
-| Empates | 23% a 28% | 24,9% |
+| Gols por jogo | 2,5 a 2,8 | 2,63 |
+| Empates | 23% a 28% | 25,5% |
 | Mais forte vence mais, com zebras em toda faixa | sim | sim (zebra de 10% a 33%) |
-| Mesma década: gols a até 0,3 da média real | todas as décadas | todas (maior desvio: 0,22 em 1980) |
+| Mesma década: gols a até 0,3 da média real | todas as décadas | todas (maior desvio: 0,14 em 1960) |
 
 ## Referência real por faixa de diferença de Elo
 
@@ -33,23 +33,42 @@ Os gols por jogo variam muito entre décadas (3,74 em 1950, 2,26 em 1980, entre 
 
 | Parâmetro | Valor | Efeito |
 | --- | --- | --- |
-| `k` | 1,479 | Expoente dos duelos `A^k / (A^k + B^k)` |
+| `k` | 1,597 | Expoente dos duelos `A^k / (A^k + B^k)` |
 | `advance0` | DEF 0,92 · MID 0,609 · ATT 0,42 | Chance de avançar de zona entre times iguais |
-| `stepMinutes` | 0,4122 | Minutos por passo (define o número de posses) |
-| `counterBase` | 0,0891 | Chance base de contra-ataque após perda de posse |
-| `longBallBase` / `longBall0` | 0,1188 / 0,3 | Bola longa a partir da defesa e sucesso entre iguais |
-| `xg` | trabalhada 0,0801 · contra-ataque 0,1459 · cruzamento 0,0546 · bola parada 0,0437 · pênalti 0,76 | xG base por tipo de chance |
-| `qualityExp` | 0,495 | Quanto a vantagem ataque/defesa melhora o xG da chance |
-| `conv.slope` | 0,0095 | Logit por ponto de finalizador vs goleiro (centros 65 e 60) |
+| `stepMinutes` | 0,3792 | Minutos por passo (define o número de posses) |
+| `counterBase` | 0,0694 | Chance base de contra-ataque após perda de posse |
+| `longBallBase` / `longBall0` | 0,1006 / 0,3 | Bola longa a partir da defesa e sucesso entre iguais |
+| `xg` | trabalhada 0,0865 · contra-ataque 0,1573 · cruzamento 0,0590 · bola parada 0,0472 · pênalti 0,76 | xG base por tipo de chance |
+| `qualityExp` | 0,4496 | Quanto a vantagem ataque/defesa melhora o xG da chance |
+| `conv.slope` | 0,00735 | Logit por ponto de finalizador vs goleiro (centros 65 e 60) |
 | `baseGoalRate` / `eraExp` | 2,65 / 0,732 | Ambiente de gols da era |
+| `offsideBase` | 0,09 | Impedimento: `0,09 x (0,4 + 1,3 x linha adversária)`, x1,3 em contra-ataque, x1,8 em bola longa |
+| `hardSaveXg` / `bigChanceXg` / `postShare` | 0,15 / 0,11 / 0,07 | Defesa difícil, chance clara perdida e trave (sem sorteio extra: classificam o mesmo chute) |
+| `tactics` | attackTempo 0,3 · attackLine 0,2 · pressRecover 0,3 · defLineCompact 0,18 | Postura tática (ver abaixo) |
 | `foulBase`, `yellowPerFoul`, `redPerFoul` | 0,10 · 0,16 · 0,006 | Faltas e cartões (não calibrados contra dados reais) |
 | `fatigue`, `fatigueImpact` | base 0,08, pressão 0,12, ritmo 0,06, linha 0,03; 0,3 | Fadiga por minuto e peso na força |
 
-Os valores saíram de uma busca por coordenadas (`scripts/tune.ts`) que minimiza o desvio dos alvos acima, com a mesma seed em todas as avaliações.
+Os valores saíram de uma busca por coordenadas (`scripts/tune.ts`) que minimiza o desvio dos alvos acima, com a mesma seed em todas as avaliações. Resultado: 2,63 gols/jogo, 25,5% de empates, todas as décadas a até 0,14 da média real.
+
+## Novos eventos (Fase 6.5, etapa 2)
+
+Por jogo, entre seleções-era sorteadas: impedimento 3,1; defesa difícil 0,75; chance clara perdida 1,15; trave 1,3. Os três últimos só reclassificam finalizações que já existiam (o número de gols não muda). O impedimento é um sorteio novo e por isso exigiu recalibrar.
+
+## Efeito da tática (últimos 30 minutos, 600 jogos Brasil 70 x Alemanha Ocidental 80)
+
+Mudança no minuto 60 em comparação com o time sem mudar:
+
+| Tática | Chutes a favor | Chutes contra | Gols a favor | Gols contra |
+| --- | --- | --- | --- | --- |
+| Base | 5,2 | 4,6 | 0,37 | 0,39 |
+| Ataque total (4-3-3, pressão 100%, linha 95%, ritmo 95%) | 6,3 | 5,9 | 0,50 | 0,55 |
+| Retranca total (5-4-1, tudo em 5%) | 4,0 | 4,0 | 0,28 | 0,28 |
+
+Atacar eleva os dois lados (mais variância, bom para quem precisa de gols); recuar derruba os dois (bom para quem defende o placar). Nenhuma das duas é grátis.
 
 ## Limites conhecidos
 
-- **k abaixo de 2:** o ponto de partida do prompt era k = 2. Com os elencos gerados (qualidade = 50 + 0,045 x (Elo - 1500)) os duelos ficavam fortes demais, com o mais forte vencendo mais do que a base real mostra. A busca ficou em k = 1,48.
+- **k abaixo de 2:** o ponto de partida do prompt era k = 2. Com os elencos gerados (qualidade = 50 + 0,045 x (Elo - 1500)) os duelos ficavam fortes demais, com o mais forte vencendo mais do que a base real mostra. A busca ficou em k = 1,6.
 - **Finalizações:** cerca de 31 por jogo, acima do real (perto de 25). Os gols e o xG estão no alvo; o número de chutes não foi um critério.
 - **Faltas e cartões:** só plausíveis (cerca de 8 faltas e 1,3 amarelos por jogo), sem referência real.
 - **Mando:** não calibrado, porque o MVP joga em campo neutro.

@@ -110,7 +110,11 @@ export type EventType =
   | 'shot'
   | 'goal'
   | 'save'
+  | 'hard-save'
   | 'miss'
+  | 'big-miss'
+  | 'post'
+  | 'offside'
   | 'foul'
   | 'yellow'
   | 'red'
@@ -147,6 +151,7 @@ export interface TeamMatchStats {
   fouls: number;
   yellows: number;
   reds: number;
+  offsides: number;
 }
 
 export interface MatchReport {

@@ -8,13 +8,14 @@ const STAT_ROWS: { key: keyof TeamMatchStats; label: string; fmt?: (v: number) =
   { key: 'shots', label: 'Finalizações' },
   { key: 'shotsOnTarget', label: 'No alvo' },
   { key: 'xg', label: 'xG', fmt: (v) => v.toFixed(2) },
+  { key: 'offsides', label: 'Impedimentos' },
   { key: 'fouls', label: 'Faltas' },
   { key: 'yellows', label: 'Amarelos' },
   { key: 'reds', label: 'Vermelhos' },
 ];
 
-const KEY_EVENTS = new Set(['goal', 'yellow', 'red', 'sub', 'halftime', 'fulltime', 'penalty-shootout', 'tactic']);
-const ICON: Partial<Record<MatchEvent['type'], string>> = { goal: '⚽', yellow: '🟨', red: '🟥', sub: '🔁', halftime: '⏸', fulltime: '🏁', 'penalty-shootout': '🎯', tactic: '📋' };
+const KEY_EVENTS = new Set(['goal', 'hard-save', 'big-miss', 'post', 'yellow', 'red', 'sub', 'halftime', 'fulltime', 'penalty-shootout', 'tactic']);
+const ICON: Partial<Record<MatchEvent['type'], string>> = { goal: '⚽', 'hard-save': '🧤', 'big-miss': '😱', post: '🥅', yellow: '🟨', red: '🟥', sub: '🔁', halftime: '⏸', fulltime: '🏁', 'penalty-shootout': '🎯', tactic: '📋' };
 
 export function PostMatch({ report, fixture, userNationId, onContinue }: { report: MatchReport; fixture: Fixture; userNationId: string; onContinue: () => void }) {
   const home = nationsById.get(report.teams[0])!;

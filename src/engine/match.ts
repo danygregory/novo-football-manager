@@ -5,7 +5,11 @@ import {
   narrateAdvance,
   narrateFoul,
   narrateGoal,
+  narrateBigMiss,
+  narrateHardSave,
   narrateMiss,
+  narrateOffside,
+  narratePost,
   narrateRed,
   narrateSave,
   narrateShootoutKick,
@@ -108,7 +112,7 @@ interface SideState {
   tactics: Tactics;
   players: PState[];
   subs: number;
-  stats: { shots: number; onTarget: number; xg: number; fouls: number; yellows: number; reds: number; possTime: number };
+  stats: { shots: number; onTarget: number; xg: number; fouls: number; yellows: number; reds: number; offsides: number; possTime: number };
   sectors: Sectors;
   dirty: boolean;
   aiMode: 'base' | 'attack' | 'defend';
@@ -220,7 +224,7 @@ export class MatchSimulator {
       baseTactics: { ...tactics },
       players,
       subs: 0,
-      stats: { shots: 0, onTarget: 0, xg: 0, fouls: 0, yellows: 0, reds: 0, possTime: 0 },
+      stats: { shots: 0, onTarget: 0, xg: 0, fouls: 0, yellows: 0, reds: 0, offsides: 0, possTime: 0 },
       sectors: { def: 0, mid: 0, att: 0, speed: 0, gk: 0 },
       dirty: true,
       aiMode: 'base',
@@ -503,6 +507,7 @@ export class MatchSimulator {
         const B = sd.def * (1.1 - 0.4 * lineD);
         const pr = this.p(A * Math.pow(this.params.longBall0 / (1 - this.params.longBall0), 1 / this.params.k), B);
         if (this.rng.chance(pr)) {
+          if (this.offside(aSide, lineD, 1.8)) return;
           this.ball = { team: aSide, zone: 'ATT', mode: 'long' };
           this.flow('advance', aSide, 'ATT', narrateAdvance({ ...this.ctx(aSide), zone: 'ATT' }));
         } else {
@@ -520,14 +525,14 @@ export class MatchSimulator {
       B = sd.mid * (1 + 0.25 * (pressD - 0.5));
       next = 'MID';
     } else if (zone === 'MID') {
-      A = (0.6 * sa.mid + 0.4 * sa.att) * precision;
+      A = (0.6 * sa.mid + 0.4 * sa.att) * precision * (1 + this.params.tactics.attackLine * (a.tactics.lineHeight - 0.5));
       B = (0.5 * sd.mid + 0.5 * sd.def) * (1 + 0.2 * (pressD - 0.5)) * (1 + 0.1 * (lineD - 0.5));
       next = 'ATT';
     } else {
       next = 'BOX';
       if (this.ball.mode === 'build') {
-        A = sa.att * precision;
-        B = sd.def * (1 + 0.04 * (0.5 - lineD));
+        A = sa.att * precision * (1 + this.params.tactics.attackTempo * (a.tactics.tempo - 0.5));
+        B = sd.def * (1 + this.params.tactics.defLineCompact * (0.5 - lineD));
       } else {
         A = sa.att * Math.pow(sa.speed / 65, 0.7);
         B = sd.def * (1.1 - 0.4 * lineD);
@@ -538,6 +543,7 @@ export class MatchSimulator {
 
     if (win) {
       if (next === 'BOX') {
+        if (this.offside(aSide, lineD, this.ball.mode === 'counter' ? 1.3 : 1)) return;
         const type: ShotType = this.ball.mode === 'build' ? (this.rng.chance(0.22) ? 'cruzamento' : 'trabalhada') : 'contra-ataque';
         const quality = clamp(Math.pow(A / B, this.params.qualityExp), 0.5, 2);
         this.shoot(aSide, type, quality);
@@ -559,6 +565,19 @@ export class MatchSimulator {
     this.turnover(aSide, lostAt, next === 'MID' || next === 'ATT');
   }
 
+  /** Impedimento: a linha alta adversária prende mais atacantes, sobretudo em bola longa. Devolve true se anulou a jogada. */
+  private offside(attacker: Side, defLine: number, modeMult: number): boolean {
+    const p = this.params.offsideBase * (0.4 + 1.3 * defLine) * modeMult;
+    if (!this.rng.chance(p)) return false;
+    const A = this.sides[attacker];
+    const who = this.pickPlayer(attacker, (x) => SHOOTER_SLOT_WEIGHT[x.slot] * Math.max(1, x.p.attrs.velocidade));
+    A.stats.offsides++;
+    this.addRating(who, -0.05);
+    this.emit('offside', attacker, 'ATT', { playerId: who.p.id, text: narrateOffside({ ...this.ctx(attacker), player: who.p.name }) });
+    this.ball = { team: other(attacker), zone: 'DEF', mode: 'build' };
+    return true;
+  }
+
   /** `from` = zona (do ponto de vista de quem perdeu) onde a bola foi perdida. */
   private turnover(loser: Side, from: FieldZone, allowCounter: boolean): void {
     const winner = other(loser);
@@ -572,6 +591,7 @@ export class MatchSimulator {
         this.params.counterBase *
         (0.6 + 1.2 * L.tactics.lineHeight + 0.5 * L.tactics.pressing) *
         (0.6 + 0.8 * W.tactics.tempo) *
+        (1 - this.params.tactics.pressRecover + 2 * this.params.tactics.pressRecover * W.tactics.pressing) *
         clamp(this.sectorsOf(winner).speed / 65, 0.7, 1.4) *
         (from === 'ATT' ? 0.5 : 1.0);
       if (this.rng.chance(pCounter)) {
@@ -668,14 +688,21 @@ export class MatchSimulator {
     if (roll < pOnTarget) {
       S.stats.onTarget++;
       this.addRating(shooter, 0.05);
-      if (keeper) this.addRating(keeper, 0.2);
-      this.emit('save', side, 'BOX', {
+      const hard = xg >= this.params.hardSaveXg;
+      if (keeper) this.addRating(keeper, hard ? 0.35 : 0.2);
+      this.emit(hard ? 'hard-save' : 'save', side, 'BOX', {
         playerId: shooter.p.id,
         secondaryPlayerId: keeper?.p.id,
         shotType: type,
         xg,
-        text: narrateSave({ ...names, other: keeper?.p.name ?? 'o goleiro' }),
+        text: (hard ? narrateHardSave : narrateSave)({ ...names, other: keeper?.p.name ?? 'o goleiro' }),
       });
+    } else if ((roll - pOnTarget) / (1 - pOnTarget) < this.params.postShare) {
+      this.addRating(shooter, 0);
+      this.emit('post', side, 'BOX', { playerId: shooter.p.id, shotType: type, xg, text: narratePost(names) });
+    } else if (xg >= this.params.bigChanceXg) {
+      this.addRating(shooter, -0.25);
+      this.emit('big-miss', side, 'BOX', { playerId: shooter.p.id, shotType: type, xg, text: narrateBigMiss(names) });
     } else {
       this.addRating(shooter, -0.05);
       this.emit('miss', side, 'BOX', { playerId: shooter.p.id, shotType: type, xg, text: narrateMiss(names) });
@@ -792,6 +819,7 @@ export class MatchSimulator {
         fouls: s.stats.fouls,
         yellows: s.stats.yellows,
         reds: s.stats.reds,
+        offsides: s.stats.offsides,
       };
     }) as [TeamMatchStats, TeamMatchStats];
 

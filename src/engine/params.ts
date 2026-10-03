@@ -31,6 +31,24 @@ export interface Params {
   cornerAfterSave: number;
   /** Centros do ajuste de conversão e inclinação (logit por ponto de atributo). */
   conv: { fin: number; gk: number; slope: number };
+  /** Chance base de impedimento quando a jogada chegaria à finalização (cresce com a linha alta adversária). */
+  offsideBase: number;
+  /** xG mínimo para a defesa contar como difícil e para o erro contar como chance clara perdida. */
+  hardSaveXg: number;
+  bigChanceXg: number;
+  /** Fração das finalizações para fora que acertam a trave. */
+  postShare: number;
+  /** Intensidade dos efeitos de postura tática (0 = sem efeito). */
+  tactics: {
+    /** Ritmo alto aumenta a força do ataque no último terço (e reduz a precisão da construção). */
+    attackTempo: number;
+    /** Linha alta aproxima o time do ataque no meio-campo. */
+    attackLine: number;
+    /** Pressão alta aumenta a chance de contra-ataque após recuperar a bola. */
+    pressRecover: number;
+    /** Linha baixa deixa a defesa mais compacta contra a construção (linha alta, menos). */
+    defLineCompact: number;
+  };
   /** Fadiga por minuto: base + pressão + ritmo + altura da linha. */
   fatigue: { base: number; press: number; tempo: number; line: number };
   /** Peso da condição física na força do jogador (0 = ignora). */
@@ -38,23 +56,28 @@ export interface Params {
 }
 
 export const DEFAULT_PARAMS: Params = {
-  k: 1.479,
+  k: 1.597,
   advance0: { DEF: 0.92, MID: 0.609, ATT: 0.42 },
   baseGoalRate: 2.65,
   eraExp: 0.732,
-  qualityExp: 0.495,
-  stepMinutes: 0.4122,
-  counterBase: 0.0891,
-  longBallBase: 0.1188,
+  qualityExp: 0.4496,
+  stepMinutes: 0.3792,
+  counterBase: 0.0694,
+  longBallBase: 0.1006,
   longBall0: 0.3,
-  xg: { trabalhada: 0.0801, 'contra-ataque': 0.1459, cruzamento: 0.0546, 'bola-parada': 0.0437, penalti: 0.76 },
+  xg: { trabalhada: 0.0865, 'contra-ataque': 0.1573, cruzamento: 0.0590, 'bola-parada': 0.0472, penalti: 0.76 },
+  offsideBase: 0.09,
+  hardSaveXg: 0.15,
+  bigChanceXg: 0.11,
+  postShare: 0.07,
+  tactics: { attackTempo: 0.3, attackLine: 0.2, pressRecover: 0.3, defLineCompact: 0.18 },
   foulBase: 0.1,
   yellowPerFoul: 0.16,
   redPerFoul: 0.006,
   penaltyPerBoxFoul: 0.12,
   freeKickShot: 0.5,
   cornerAfterSave: 0.25,
-  conv: { fin: 65, gk: 60, slope: 0.0095 },
+  conv: { fin: 65, gk: 60, slope: 0.00735 },
   fatigue: { base: 0.08, press: 0.12, tempo: 0.06, line: 0.03 },
   fatigueImpact: 0.3,
 };

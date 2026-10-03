@@ -21,8 +21,8 @@ export interface LiveStart extends MatchDelta {
 const SEC_PER_MIN = { 1: 1.5, 4: 0.375 } as const;
 type Speed = keyof typeof SEC_PER_MIN;
 
-const FEED_TYPES = new Set<MatchEvent['type']>(['kickoff', 'goal', 'save', 'miss', 'foul', 'yellow', 'red', 'sub', 'tactic', 'halftime', 'fulltime', 'penalty-shootout']);
-const ICON: Partial<Record<MatchEvent['type'], string>> = { goal: '⚽', save: '🧤', miss: '💨', foul: '🦶', yellow: '🟨', red: '🟥', sub: '🔁', halftime: '⏸', fulltime: '🏁', 'penalty-shootout': '🎯', tactic: '📋', kickoff: '▶' };
+const FEED_TYPES = new Set<MatchEvent['type']>(['kickoff', 'goal', 'save', 'hard-save', 'miss', 'big-miss', 'post', 'offside', 'foul', 'yellow', 'red', 'sub', 'tactic', 'halftime', 'fulltime', 'penalty-shootout']);
+const ICON: Partial<Record<MatchEvent['type'], string>> = { goal: '⚽', save: '🧤', 'hard-save': '🧤', miss: '💨', 'big-miss': '😱', post: '🥅', offside: '🚩', foul: '🦶', yellow: '🟨', red: '🟥', sub: '🔁', halftime: '⏸', fulltime: '🏁', 'penalty-shootout': '🎯', tactic: '📋', kickoff: '▶' };
 
 const lastName = (name: string) => name.split(' ').slice(-1)[0] ?? name;
 const jitter = (n: number) => ((Math.imul(n + 1, 2654435761) >>> 0) % 1000) / 1000;
@@ -137,7 +137,7 @@ export function LiveMatch({ start, speed0, onFinished, onBack }: { start: LiveSt
     if (ev.type === 'advance' || ev.type === 'possession-change') {
       m.ticker = ev.text;
       moveBall(ev.team, ev.zone);
-    } else if (ev.type === 'goal' || ev.type === 'save' || ev.type === 'miss') {
+    } else if (ev.type === 'goal' || ev.type === 'save' || ev.type === 'hard-save' || ev.type === 'miss' || ev.type === 'big-miss' || ev.type === 'post') {
       moveBall(ev.team, 'BOX');
     }
     if (FEED_TYPES.has(ev.type)) m.feed = [ev, ...m.feed].slice(0, 80);

@@ -209,3 +209,41 @@ describe('partida ao vivo', () => {
     throw new Error('nenhum jogo foi aos pênaltis');
   });
 });
+
+describe('eventos de emoção', () => {
+  it('trave, defesa difícil, chance clara perdida e impedimento aparecem com frequência realista', () => {
+    const count: Record<string, number> = {};
+    const withEvent: Record<string, number> = {};
+    const n = 150;
+    for (let s = 0; s < n; s++) {
+      const r = simulateMatch([A(), B()], { seed: s });
+      const seen = new Set<string>();
+      for (const e of r.events) {
+        count[e.type] = (count[e.type] ?? 0) + 1;
+        seen.add(e.type);
+      }
+      for (const t of seen) withEvent[t] = (withEvent[t] ?? 0) + 1;
+      const offs = r.events.filter((e) => e.type === 'offside');
+      expect(offs.filter((e) => e.team === 0).length).toBe(r.stats[0].offsides);
+      expect(offs.filter((e) => e.team === 1).length).toBe(r.stats[1].offsides);
+    }
+    for (const type of ['post', 'hard-save', 'big-miss', 'offside']) {
+      expect(withEvent[type] ?? 0, type).toBeGreaterThan(n * 0.3);
+      expect((count[type] ?? 0) / n, type).toBeLessThan(6);
+    }
+  });
+
+  it('a trave e a chance perdida não contam como gol nem como chute no alvo', () => {
+    for (let s = 0; s < 40; s++) {
+      const r = simulateMatch([A(), B()], { seed: s });
+      for (const side of [0, 1] as const) {
+        const ev = r.events.filter((e) => e.team === side);
+        const goals = ev.filter((e) => e.type === 'goal').length;
+        const onTarget = goals + ev.filter((e) => e.type === 'save' || e.type === 'hard-save').length;
+        const offTarget = ev.filter((e) => e.type === 'miss' || e.type === 'big-miss' || e.type === 'post').length;
+        expect(r.stats[side].shotsOnTarget).toBe(onTarget);
+        expect(r.stats[side].shots).toBe(onTarget + offTarget);
+      }
+    }
+  });
+});
