@@ -1,3 +1,4 @@
+import './ui/styles.css';
 import { createRoot } from 'react-dom/client';
 import { App } from './ui/App';
 

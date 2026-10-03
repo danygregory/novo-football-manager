@@ -589,7 +589,7 @@ export class MatchSimulator {
     if (roll < pOnTarget) {
       S.stats.onTarget++;
       this.addRating(shooter, 0.05);
-      if (keeper) this.addRating(keeper, 0.35);
+      if (keeper) this.addRating(keeper, 0.2);
       this.emit('save', side, 'BOX', {
         playerId: shooter.p.id,
         secondaryPlayerId: keeper?.p.id,

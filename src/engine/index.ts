@@ -8,3 +8,4 @@ export * from './fatigue';
 export * from './match';
 export * from './calibration';
 export * from './narration';
+export * from './tournament';
