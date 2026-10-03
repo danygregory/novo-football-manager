@@ -54,10 +54,10 @@ export interface NationEra {
   continent: Continent;
   /** Elo médio da década. */
   elo: number;
-  /** Força normalizada derivada do Elo (média do mundo = 1). */
+  /** Força derivada do Elo: 10^((elo - 1800) / 400). */
   strength: number;
   playStyle: PlayStyle;
-  /** Média de gols por jogo da seleção na década. */
+  /** Gols marcados/sofridos por jogo na década (contra adversários com Elo >= 1650 quando há amostra). */
   goalsFor: number;
   goalsAgainst: number;
   colors: { primary: string; secondary: string };
@@ -66,9 +66,14 @@ export interface NationEra {
 
 export interface DecadeStats {
   decade: Decade;
-  /** Média de gols por jogo (soma dos dois times) em toda a base da década. */
-  goalsPerMatch: number;
+  /** Jogos da década na base inteira. */
   matches: number;
+  /** Média de gols por jogo (soma dos dois times) em toda a base. */
+  goalsPerMatch: number;
+  /** Mesma média, só em jogos entre seleções com Elo >= 1650 (referência da calibração). */
+  goalsPerMatchCompetitive: number;
+  /** Elo médio das seleções-era da década (com amostra mínima). */
+  meanElo: number;
 }
 
 export interface World {
