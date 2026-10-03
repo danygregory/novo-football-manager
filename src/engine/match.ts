@@ -52,6 +52,24 @@ export interface MatchOptions {
 
 export const MAX_SUBS = 5;
 
+export interface LiveSide {
+  onPitch: { id: string; slot: Slot; cond: number }[];
+  bench: { id: string; cond: number }[];
+  subsLeft: number;
+  tactics: Tactics;
+}
+
+/** Foto do estado da partida para a interface (campo, banco, tática). */
+export interface LiveState {
+  clock: number;
+  minute: number;
+  score: [number, number];
+  ball: { team: 0 | 1; zone: Zone };
+  finished: boolean;
+  extraTime: boolean;
+  sides: [LiveSide, LiveSide];
+}
+
 type Side = 0 | 1;
 type FieldZone = 'DEF' | 'MID' | 'ATT';
 type Mode = 'build' | 'counter' | 'long';
@@ -214,6 +232,26 @@ export class MatchSimulator {
   /** Eventos gerados até agora (a lista só cresce). */
   get eventLog(): readonly MatchEvent[] {
     return this.events;
+  }
+  liveState(): LiveState {
+    const side = (i: Side): LiveSide => {
+      const s = this.sides[i];
+      return {
+        onPitch: s.players.filter((x) => x.onPitch).map((x) => ({ id: x.p.id, slot: x.slot, cond: Math.round(x.cond * 10) / 10 })),
+        bench: s.players.filter((x) => !x.onPitch && !x.played).map((x) => ({ id: x.p.id, cond: Math.round(x.cond * 10) / 10 })),
+        subsLeft: MAX_SUBS - s.subs,
+        tactics: { ...s.tactics },
+      };
+    };
+    return {
+      clock: Math.round(this.clock * 1000) / 1000,
+      minute: this.minute,
+      score: [this.score[0], this.score[1]],
+      ball: { team: this.ball.team, zone: this.ball.zone },
+      finished: this.done,
+      extraTime: this.extraTimeStarted,
+      sides: [side(0), side(1)],
+    };
   }
   onPitch(side: Side): Player[] {
     return this.sides[side].players.filter((x) => x.onPitch).map((x) => x.p);
@@ -638,6 +676,7 @@ export class MatchSimulator {
       if (scored) res[side]++;
       this.emit('penalty-shootout', side, 'BOX', {
         playerId: taker.p.id,
+        scored,
         text: narrateShootoutKick({ ...this.ctx(side), player: taker.p.name, scored }),
       });
     };
@@ -683,7 +722,7 @@ export class MatchSimulator {
   }
 
   private flow(type: EventType, team: Side, zone: Zone, text: string): void {
-    if (this.full) this.events.push({ minute: this.minute, type, team, zone, text });
+    if (this.full) this.events.push({ minute: this.minute, type, team, zone, t: this.t3(), text });
   }
 
   private emit(type: EventType, team: Side, zone: Zone, extra: Partial<MatchEvent> & { text: string }): void {
@@ -691,7 +730,11 @@ export class MatchSimulator {
       // no modo resumo só os gols são guardados (para o relatório); cartões/substituições também não.
       if (type !== 'red' && type !== 'yellow') return;
     }
-    this.events.push({ minute: this.minute, type, team, zone, ...extra });
+    this.events.push({ minute: this.minute, type, team, zone, t: this.t3(), ...extra });
+  }
+
+  private t3(): number {
+    return Math.round(this.clock * 1000) / 1000;
   }
 
   // ---------- relatório ----------

@@ -2,7 +2,7 @@ import { STAGE_LABEL, type Fixture, type Tournament } from '../../engine/tournam
 import { Bar, NationName, STYLE_LABEL } from '../components/common';
 import { nationsById } from '../world';
 
-export function MatchIntro({ t, fixture, busy, onInstant, onBack }: { t: Tournament; fixture: Fixture; busy: boolean; onInstant: () => void; onBack: () => void }) {
+export function MatchIntro({ t, fixture, busy, onInstant, onWatch, onBack }: { t: Tournament; fixture: Fixture; busy: boolean; onInstant: () => void; onWatch: (speed: 1 | 4) => void; onBack: () => void }) {
   const home = nationsById.get(fixture.home)!;
   const away = nationsById.get(fixture.away)!;
   const mineIsHome = fixture.home === t.userNationId;
@@ -41,7 +41,9 @@ export function MatchIntro({ t, fixture, busy, onInstant, onBack }: { t: Tournam
         </p>
       </div>
       <div className="row" style={{ marginTop: 18 }}>
-        <button className="primary" disabled={busy} onClick={onInstant}>{busy ? 'Simulando…' : 'Simular instantâneo'}</button>
+        <button className="primary" disabled={busy} onClick={() => onWatch(1)}>{busy ? 'Preparando…' : 'Assistir (1x)'}</button>
+        <button disabled={busy} onClick={() => onWatch(4)}>Assistir (4x)</button>
+        <button disabled={busy} onClick={onInstant}>Simular instantâneo</button>
       </div>
     </div>
   );

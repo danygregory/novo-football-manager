@@ -132,6 +132,10 @@ export interface MatchEvent {
   secondaryPlayerId?: string;
   shotType?: ShotType;
   xg?: number;
+  /** Relógio contínuo da partida em minutos (para animar o fluxo da bola). */
+  t?: number;
+  /** Cobrança de pênalti (disputa): convertida ou não. */
+  scored?: boolean;
   text: string;
 }
 

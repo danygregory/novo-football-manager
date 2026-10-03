@@ -124,3 +124,15 @@ tr.me td { color: var(--accent); font-weight: 650; }
 .opts button.active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 650; }
 .next-match { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .next-match .vs { font-size: 1.2rem; font-weight: 700; }
+
+.live-grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; margin-top: 14px; align-items: start; }
+@media (max-width: 1000px) { .live-grid { grid-template-columns: 1fr; } }
+.pitch-wrap { position: relative; border-radius: 10px; overflow: hidden; background: #2f7a45; line-height: 0; }
+.flash { position: absolute; inset: 0 0 auto 0; margin: 16px auto 0; width: max-content; max-width: 90%; background: rgba(0,0,0,.72); color: var(--accent); font-size: 1.6rem; font-weight: 800; padding: .3em .9em; border-radius: 10px; line-height: 1.2; }
+.flash.soft { font-size: 1rem; color: var(--text); font-weight: 600; }
+.ticker { margin: 8px 2px; min-height: 1.4em; font-size: .9rem; }
+.controls { margin-top: 4px; }
+.controls button.active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 650; }
+.feed .timeline { max-height: 520px; padding-left: 0; list-style: none; margin: 0 0 8px; overflow: auto; }
+.feed li.opp { opacity: .8; }
+.live-score .clock { margin-top: 4px; color: var(--accent); font-weight: 700; font-variant-numeric: tabular-nums; }

@@ -6,6 +6,7 @@ import { engine } from './engineClient';
 import { Cup } from './screens/Cup';
 import { CupEnd } from './screens/CupEnd';
 import { Home } from './screens/Home';
+import { LiveMatch, type LiveStart } from './screens/LiveMatch';
 import { MatchIntro } from './screens/Match';
 import { PickNation } from './screens/PickNation';
 import { PostMatch } from './screens/PostMatch';
@@ -13,7 +14,7 @@ import { Squad } from './screens/Squad';
 import { Tactics } from './screens/Tactics';
 import { nationsById, world } from './world';
 
-type Screen = 'home' | 'pick' | 'squad' | 'tactics' | 'cup' | 'match' | 'post' | 'end';
+type Screen = 'home' | 'pick' | 'squad' | 'tactics' | 'cup' | 'match' | 'live' | 'post' | 'end';
 
 interface Game {
   screen: Screen;
@@ -22,6 +23,7 @@ interface Game {
   lineup?: Lineup;
   tournament?: Tournament;
   last?: { report: MatchReport; fixture: Fixture };
+  live?: { start: LiveStart; speed: 1 | 4 };
 }
 
 const FRESH: Game = { screen: 'home', called: [] };
@@ -58,6 +60,32 @@ export function App() {
       const { report, fixture } = await engine.call('instantUserMatch', { tournament: t });
       const { tournament } = await engine.call('playRound', { tournament: t, userReport: report });
       setG((prev) => ({ ...prev, tournament, last: { report, fixture }, screen: 'post' }));
+    });
+
+  const startLive = (speed: 1 | 4) =>
+    guarded(async () => {
+      const start = await engine.call('matchStart', { tournament: g.tournament as Tournament });
+      setG((prev) => ({ ...prev, live: { start, speed }, screen: 'live' }));
+    });
+
+  /** Fecha a rodada com o relatório da partida assistida e vai para o pós-jogo. */
+  const finishLive = (report: MatchReport) =>
+    guarded(async () => {
+      const t0 = g.tournament as Tournament;
+      const fixture = g.live?.start.fixture as Fixture;
+      const { tournament } = await engine.call('playRound', { tournament: t0, userReport: report });
+      setG((prev) => ({ ...prev, tournament, last: { report, fixture }, live: undefined, screen: 'post' }));
+    });
+
+  /** Sair da visualização: o resto da partida é simulado de uma vez e o jogo segue para o pós-jogo. */
+  const exitLive = () =>
+    guarded(async () => {
+      const t0 = g.tournament as Tournament;
+      const fixture = g.live?.start.fixture as Fixture;
+      const { report } = await engine.call('matchFinish', {});
+      if (!report) throw new Error('A partida não gerou relatório.');
+      const { tournament } = await engine.call('playRound', { tournament: t0, userReport: report });
+      setG((prev) => ({ ...prev, tournament, last: { report, fixture }, live: undefined, screen: 'post' }));
     });
 
   const simulateRest = () =>
@@ -127,7 +155,11 @@ export function App() {
       )}
 
       {g.screen === 'match' && t && userFixture(t, world) && (
-        <MatchIntro t={t} fixture={userFixture(t, world) as Fixture} busy={busy} onInstant={playInstant} onBack={() => go({ screen: 'cup' })} />
+        <MatchIntro t={t} fixture={userFixture(t, world) as Fixture} busy={busy} onInstant={playInstant} onWatch={startLive} onBack={() => go({ screen: 'cup' })} />
+      )}
+
+      {g.screen === 'live' && g.live && (
+        <LiveMatch key={g.live.start.fixture.id} start={g.live.start} speed0={g.live.speed} onFinished={(r) => void finishLive(r)} onBack={() => void exitLive()} />
       )}
 
       {g.screen === 'post' && g.last && t && (

@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 import worldJson from '../../data/world.json';
-import { simulateMatch, type TeamSetup } from './match';
+import { MatchSimulator, simulateMatch, type LiveState, type TeamSetup } from './match';
 import {
   buildSetup,
   createTournament,
@@ -12,7 +12,7 @@ import {
   type RoundOutcome,
   type Tournament,
 } from './tournament';
-import type { Lineup, MatchReport, World } from './types';
+import type { Lineup, MatchEvent, MatchReport, Tactics, World } from './types';
 
 /**
  * Worker do motor: toda simulação roda aqui, fora da thread da interface.
@@ -27,6 +27,21 @@ export interface Requests {
   /** Fecha a rodada (IA joga os demais jogos) com o relatório da partida do usuário. */
   playRound: { tournament: Tournament; userReport?: MatchReport };
   playRemaining: { tournament: Tournament };
+  /** Abre uma partida ao vivo do usuário na rodada atual (a sessão fica no worker). */
+  matchStart: { tournament: Tournament };
+  /** Simula até o minuto indicado e devolve os eventos novos e o estado. */
+  matchAdvance: { until: number };
+  matchFinish: Record<string, never>;
+  matchSubstitute: { side: 0 | 1; outId: string; inId: string };
+  matchTactics: { side: 0 | 1; tactics: Tactics };
+}
+
+export interface MatchDelta {
+  events: MatchEvent[];
+  state: LiveState;
+  /** Presente quando a partida acabou. */
+  report?: MatchReport;
+  ok?: boolean;
 }
 
 export interface Responses {
@@ -34,9 +49,26 @@ export interface Responses {
   instantUserMatch: { report: MatchReport; fixture: Fixture; userSide: 0 | 1 };
   playRound: RoundOutcome;
   playRemaining: Tournament;
+  matchStart: MatchDelta & { fixture: Fixture; userSide: 0 | 1 };
+  matchAdvance: MatchDelta;
+  matchFinish: MatchDelta;
+  matchSubstitute: MatchDelta;
+  matchTactics: MatchDelta;
 }
 
 export type RequestType = keyof Requests;
+
+let session: { sim: MatchSimulator; cursor: number } | undefined;
+
+function delta(withReport = false): MatchDelta {
+  if (!session) throw new Error('Nenhuma partida ao vivo aberta.');
+  const { sim } = session;
+  const log = sim.eventLog;
+  const events = log.slice(session.cursor) as MatchEvent[];
+  session.cursor = log.length;
+  const state = sim.liveState();
+  return { events, state, report: withReport || state.finished ? sim.report() : undefined };
+}
 
 const handlers: { [K in RequestType]: (p: Requests[K]) => Responses[K] } = {
   createTournament: (p) => createTournament(world, p.nationId, p.squad, p.lineup, p.seed),
@@ -52,6 +84,33 @@ const handlers: { [K in RequestType]: (p: Requests[K]) => Responses[K] } = {
   },
   playRound: (p) => playRound(world, p.tournament, p.userReport),
   playRemaining: (p) => playRemaining(world, p.tournament),
+  matchStart: ({ tournament: t }) => {
+    const fixture = userFixture(t, world);
+    if (!fixture) throw new Error('O usuário não tem partida nesta rodada.');
+    const setups: [TeamSetup, TeamSetup] = [
+      buildSetup(world, t, fixture.home, fixture.home === t.userNationId),
+      buildSetup(world, t, fixture.away, fixture.away === t.userNationId),
+    ];
+    const sim = new MatchSimulator(setups, { seed: fixtureSeed(t, fixture), knockout: !t.stage.startsWith('G'), detail: 'full' });
+    session = { sim, cursor: 0 };
+    return { ...delta(), fixture, userSide: fixture.home === t.userNationId ? 0 : 1 };
+  },
+  matchAdvance: ({ until }) => {
+    session?.sim.playUntil(until);
+    return delta();
+  },
+  matchFinish: () => {
+    session?.sim.playToEnd();
+    return delta(true);
+  },
+  matchSubstitute: ({ side, outId, inId }) => {
+    const ok = session?.sim.substitute(side, outId, inId) ?? false;
+    return { ...delta(), ok };
+  },
+  matchTactics: ({ side, tactics }) => {
+    session?.sim.setTactics(side, tactics);
+    return delta();
+  },
 };
 
 self.onmessage = (ev: MessageEvent<{ id: number; type: RequestType } & Record<string, unknown>>) => {

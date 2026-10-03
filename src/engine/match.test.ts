@@ -177,3 +177,35 @@ describe('tática, fadiga e substituições', () => {
     expect((performance.now() - t0) / 200).toBeLessThan(5);
   });
 });
+
+describe('partida ao vivo', () => {
+  it('eventos têm relógio contínuo crescente e liveState reflete o jogo', () => {
+    const sim = new MatchSimulator([setup('BRA-1970', false), B()], { seed: 21 });
+    sim.playUntil(15);
+    const st = sim.liveState();
+    expect(st.clock).toBeGreaterThanOrEqual(15);
+    expect(st.clock).toBeLessThan(16);
+    expect(st.sides[0].onPitch).toHaveLength(11);
+    expect(st.sides[0].bench).toHaveLength(12);
+    expect(st.sides[0].subsLeft).toBe(5);
+    const r = sim.playToEnd();
+    const ts = r.events.map((e) => e.t ?? 0);
+    expect([...ts].sort((a, b) => a - b)).toEqual(ts);
+    expect(sim.liveState().finished).toBe(true);
+  });
+
+  it('chutes da disputa de pênaltis trazem o flag scored', () => {
+    for (let s = 0; s < 200; s++) {
+      const r = simulateMatch([A(), A()], { seed: s, knockout: true });
+      if (!r.shootout) continue;
+      const kicks = r.events.filter((e) => e.type === 'penalty-shootout');
+      expect(kicks.length).toBeGreaterThanOrEqual(6);
+      expect(kicks.every((k) => typeof k.scored === 'boolean')).toBe(true);
+      const sum: [number, number] = [0, 0];
+      for (const k of kicks) if (k.scored) sum[k.team]++;
+      expect(sum).toEqual(r.shootout);
+      return;
+    }
+    throw new Error('nenhum jogo foi aos pênaltis');
+  });
+});
