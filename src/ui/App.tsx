@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { STAGE_LABEL, userFixture, type Fixture, type Tournament } from '../engine/tournament';
+import { STAGE_LABEL, userFixture, type Fixture, type MatchRecord, type Tournament } from '../engine/tournament';
 import type { Lineup, MatchReport } from '../engine/types';
 import { Kit } from './components/common';
 import { engine } from './engineClient';
@@ -57,8 +57,8 @@ export function App() {
   const playInstant = () =>
     guarded(async () => {
       const t = g.tournament as Tournament;
-      const { report, fixture } = await engine.call('instantUserMatch', { tournament: t });
-      const { tournament } = await engine.call('playRound', { tournament: t, userReport: report });
+      const { report, fixture, record } = await engine.call('instantUserMatch', { tournament: t });
+      const { tournament } = await engine.call('playRound', { tournament: t, userReport: report, record });
       setG((prev) => ({ ...prev, tournament, last: { report, fixture }, screen: 'post' }));
     });
 
@@ -69,11 +69,11 @@ export function App() {
     });
 
   /** Fecha a rodada com o relatório da partida assistida e vai para o pós-jogo. */
-  const finishLive = (report: MatchReport) =>
+  const finishLive = (report: MatchReport, record: MatchRecord) =>
     guarded(async () => {
       const t0 = g.tournament as Tournament;
       const fixture = g.live?.start.fixture as Fixture;
-      const { tournament } = await engine.call('playRound', { tournament: t0, userReport: report });
+      const { tournament } = await engine.call('playRound', { tournament: t0, userReport: report, record });
       setG((prev) => ({ ...prev, tournament, last: { report, fixture }, live: undefined, screen: 'post' }));
     });
 
@@ -82,9 +82,9 @@ export function App() {
     guarded(async () => {
       const t0 = g.tournament as Tournament;
       const fixture = g.live?.start.fixture as Fixture;
-      const { report } = await engine.call('matchFinish', {});
-      if (!report) throw new Error('A partida não gerou relatório.');
-      const { tournament } = await engine.call('playRound', { tournament: t0, userReport: report });
+      const { report, record } = await engine.call('matchFinish', {});
+      if (!report || !record) throw new Error('A partida não gerou relatório.');
+      const { tournament } = await engine.call('playRound', { tournament: t0, userReport: report, record });
       setG((prev) => ({ ...prev, tournament, last: { report, fixture }, live: undefined, screen: 'post' }));
     });
 
@@ -159,7 +159,7 @@ export function App() {
       )}
 
       {g.screen === 'live' && g.live && (
-        <LiveMatch key={g.live.start.fixture.id} start={g.live.start} speed0={g.live.speed} onFinished={(r) => void finishLive(r)} onBack={() => void exitLive()} />
+        <LiveMatch key={g.live.start.fixture.id} start={g.live.start} speed0={g.live.speed} onFinished={(r, rec) => void finishLive(r, rec)} onBack={() => void exitLive()} />
       )}
 
       {g.screen === 'post' && g.last && t && (

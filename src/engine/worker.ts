@@ -7,8 +7,10 @@ import {
   fixtureSeed,
   playRemaining,
   playRound,
+  startRecord,
   userFixture,
   type Fixture,
+  type MatchRecord,
   type RoundOutcome,
   type Tournament,
 } from './tournament';
@@ -25,7 +27,7 @@ export interface Requests {
   /** Simula a partida do usuário na rodada atual de uma vez (detalhe completo). */
   instantUserMatch: { tournament: Tournament };
   /** Fecha a rodada (IA joga os demais jogos) com o relatório da partida do usuário. */
-  playRound: { tournament: Tournament; userReport?: MatchReport };
+  playRound: { tournament: Tournament; userReport?: MatchReport; record?: MatchRecord };
   playRemaining: { tournament: Tournament };
   /** Abre uma partida ao vivo do usuário na rodada atual (a sessão fica no worker). */
   matchStart: { tournament: Tournament };
@@ -41,12 +43,14 @@ export interface MatchDelta {
   state: LiveState;
   /** Presente quando a partida acabou. */
   report?: MatchReport;
+  /** Registro para replay (seed, escalações e comandos); presente quando a partida acabou. */
+  record?: MatchRecord;
   ok?: boolean;
 }
 
 export interface Responses {
   createTournament: Tournament;
-  instantUserMatch: { report: MatchReport; fixture: Fixture; userSide: 0 | 1 };
+  instantUserMatch: { report: MatchReport; fixture: Fixture; userSide: 0 | 1; record: MatchRecord };
   playRound: RoundOutcome;
   playRemaining: Tournament;
   matchStart: MatchDelta & { fixture: Fixture; userSide: 0 | 1 };
@@ -58,7 +62,7 @@ export interface Responses {
 
 export type RequestType = keyof Requests;
 
-let session: { sim: MatchSimulator; cursor: number } | undefined;
+let session: { sim: MatchSimulator; cursor: number; record: MatchRecord } | undefined;
 
 function delta(withReport = false): MatchDelta {
   if (!session) throw new Error('Nenhuma partida ao vivo aberta.');
@@ -67,7 +71,13 @@ function delta(withReport = false): MatchDelta {
   const events = log.slice(session.cursor) as MatchEvent[];
   session.cursor = log.length;
   const state = sim.liveState();
-  return { events, state, report: withReport || state.finished ? sim.report() : undefined };
+  const finished = withReport || state.finished;
+  return {
+    events,
+    state,
+    report: finished ? sim.report() : undefined,
+    record: finished ? { ...session.record, commands: [...sim.commands] } : undefined,
+  };
 }
 
 const handlers: { [K in RequestType]: (p: Requests[K]) => Responses[K] } = {
@@ -80,9 +90,9 @@ const handlers: { [K in RequestType]: (p: Requests[K]) => Responses[K] } = {
       buildSetup(world, t, fixture.away, fixture.away === t.userNationId),
     ];
     const report = simulateMatch(setups, { seed: fixtureSeed(t, fixture), knockout: !t.stage.startsWith('G'), detail: 'full' });
-    return { report, fixture, userSide: fixture.home === t.userNationId ? 0 : 1 };
+    return { report, fixture, userSide: fixture.home === t.userNationId ? 0 : 1, record: startRecord(t, fixture, setups) };
   },
-  playRound: (p) => playRound(world, p.tournament, p.userReport),
+  playRound: (p) => playRound(world, p.tournament, p.userReport, p.record),
   playRemaining: (p) => playRemaining(world, p.tournament),
   matchStart: ({ tournament: t }) => {
     const fixture = userFixture(t, world);
@@ -92,7 +102,7 @@ const handlers: { [K in RequestType]: (p: Requests[K]) => Responses[K] } = {
       buildSetup(world, t, fixture.away, fixture.away === t.userNationId),
     ];
     const sim = new MatchSimulator(setups, { seed: fixtureSeed(t, fixture), knockout: !t.stage.startsWith('G'), detail: 'full' });
-    session = { sim, cursor: 0 };
+    session = { sim, cursor: 0, record: startRecord(t, fixture, setups) };
     return { ...delta(), fixture, userSide: fixture.home === t.userNationId ? 0 : 1 };
   },
   matchAdvance: ({ until }) => {

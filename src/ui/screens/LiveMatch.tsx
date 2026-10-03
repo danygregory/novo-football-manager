@@ -4,6 +4,7 @@ import { overall } from '../../engine/player';
 import type { LiveState } from '../../engine/match';
 import { STAGE_LABEL, type Fixture } from '../../engine/tournament';
 import type { MatchEvent, MatchReport, Tactics } from '../../engine/types';
+import type { MatchRecord } from '../../engine/tournament';
 import type { MatchDelta } from '../../engine/worker';
 import { Bar, NationName, PosPill } from '../components/common';
 import { engine } from '../engineClient';
@@ -48,13 +49,14 @@ interface Model {
   flash?: string;
   state: LiveState;
   report?: MatchReport;
+  record?: MatchRecord;
   shownEnd: boolean;
   lastKickAt: number;
   eventCount: number;
   halftimeBanner: boolean;
 }
 
-export function LiveMatch({ start, speed0, onFinished, onBack }: { start: LiveStart; speed0: Speed; onFinished: (report: MatchReport) => void; onBack: () => void }) {
+export function LiveMatch({ start, speed0, onFinished, onBack }: { start: LiveStart; speed0: Speed; onFinished: (report: MatchReport, record: MatchRecord) => void; onBack: () => void }) {
   const { fixture, userSide } = start;
   const nations = [nationsById.get(fixture.home)!, nationsById.get(fixture.away)!] as const;
   const mine = nations[userSide];
@@ -169,6 +171,7 @@ export function LiveMatch({ start, speed0, onFinished, onBack }: { start: LiveSt
     m.simClock = d.state.clock;
     if (d.state.finished) m.simFinished = true;
     if (d.report) m.report = d.report;
+    if (d.record) m.record = d.record;
   };
 
   const fetchMore = async (until: number) => {
@@ -327,7 +330,7 @@ export function LiveMatch({ start, speed0, onFinished, onBack }: { start: LiveSt
             <button onClick={instant} disabled={done || busy}>⏩ Instantâneo</button>
             <span className="spacer" />
             <button className={m.halftimeBanner ? 'primary' : ''} onClick={openPanel} disabled={done || busy || m.simFinished}>Substituir / Tática</button>
-            {done && <button className="primary" onClick={() => m.report && onFinished(m.report)}>Ver pós-jogo</button>}
+            {done && <button className="primary" onClick={() => m.report && m.record && onFinished(m.report, m.record)}>Ver pós-jogo</button>}
           </div>
           {panel && <ChangesPanel state={m.state} userSide={userSide} busy={busy} onClose={closePanel} onSub={(o, i) => call(() => engine.call('matchSubstitute', { side: userSide, outId: o, inId: i }))} onTactics={(t) => call(() => engine.call('matchTactics', { side: userSide, tactics: t }))} />}
         </div>

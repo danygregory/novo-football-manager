@@ -1,6 +1,6 @@
 import { RECOVERY_PER_DAY } from './fatigue';
 import { autoLineup, autoSquad23, tacticsForStyle } from './lineup';
-import { simulateMatch, type TeamSetup } from './match';
+import { replayMatch, simulateMatch, type LoggedCommand, type TeamSetup } from './match';
 import { Rng, hashSeed } from './prng';
 import type { Lineup, MatchReport, NationEra, Player, World } from './types';
 
@@ -43,6 +43,23 @@ export interface MatchResult {
   goals: GoalRecord[];
 }
 
+/**
+ * Tudo o que é preciso para reproduzir exatamente uma partida do usuário: seed, escalações e condições
+ * no apito inicial e a lista de comandos (minuto exato + comando).
+ */
+export interface MatchRecord {
+  fixtureId: string;
+  stage: Stage;
+  seed: number;
+  knockout: boolean;
+  teams: [string, string];
+  userSide: 0 | 1;
+  lineups: [Lineup, Lineup];
+  /** Condição de cada convocado dos dois times no início do jogo. */
+  cond: Record<string, number>;
+  commands: LoggedCommand[];
+}
+
 export interface Tournament {
   seed: number;
   userNationId: string;
@@ -55,6 +72,8 @@ export interface Tournament {
   results: MatchResult[];
   /** Próxima etapa a ser jogada. */
   stage: Stage;
+  /** Partidas do usuário já disputadas, com o necessário para o replay. */
+  userMatches: MatchRecord[];
   /** Soma de (nota) e jogos por jogador, e gols. */
   stats: { goals: Record<string, number>; ratingSum: Record<string, number>; apps: Record<string, number> };
   champion?: string;
@@ -218,6 +237,7 @@ export function createTournament(world: World, userNationId: string, userSquad: 
     groups,
     results: [],
     stage: 'G1',
+    userMatches: [],
     stats: { goals: {}, ratingSum: {}, apps: {} },
   };
 }
@@ -235,6 +255,41 @@ function toResult(f: Fixture, r: MatchReport): MatchResult {
   return { id: f.id, stage: f.stage, teams: [f.home, f.away], score: r.score, shootout: r.shootout, extraTime: r.extraTime, goals };
 }
 
+/** Monta o registro de início de uma partida do usuário (comandos entram depois, ao terminar). */
+export function startRecord(t: Tournament, fixture: Fixture, setups: [TeamSetup, TeamSetup]): MatchRecord {
+  const cond: Record<string, number> = {};
+  for (const s of setups) for (const p of s.squad) cond[p.id] = p.condition;
+  return {
+    fixtureId: fixture.id,
+    stage: fixture.stage,
+    seed: fixtureSeed(t, fixture),
+    knockout: !fixture.stage.startsWith('G'),
+    teams: [fixture.home, fixture.away],
+    userSide: fixture.home === t.userNationId ? 0 : 1,
+    lineups: [setups[0].lineup, setups[1].lineup],
+    cond,
+    commands: [],
+  };
+}
+
+/** Reconstrói os dois times como estavam no apito inicial. */
+export function setupsFromRecord(world: World, rec: MatchRecord): [TeamSetup, TeamSetup] {
+  const make = (i: 0 | 1): TeamSetup => {
+    const nation = nationOf(world, rec.teams[i]);
+    const lineup = rec.lineups[i];
+    const ids = new Set([...lineup.starters, ...lineup.bench]);
+    const squad = nation.squad.filter((p) => ids.has(p.id)).map((p) => ({ ...p, condition: rec.cond[p.id] ?? p.condition }));
+    const goalRate = world.decades.find((d) => d.decade === nation.decade)?.goalsPerMatchCompetitive;
+    return { nationId: nation.id, name: nation.country, squad, lineup, ai: i !== rec.userSide, goalRate };
+  };
+  return [make(0), make(1)];
+}
+
+/** Reproduz a partida gravada: o relatório sai idêntico ao original, incluindo as decisões do usuário. */
+export function replayRecord(world: World, rec: MatchRecord): MatchReport {
+  return replayMatch(setupsFromRecord(world, rec), { seed: rec.seed, knockout: rec.knockout, detail: 'full' }, rec.commands);
+}
+
 export interface RoundOutcome {
   tournament: Tournament;
   results: MatchResult[];
@@ -244,7 +299,7 @@ export interface RoundOutcome {
  * Encerra a rodada atual. Se o usuário ainda está vivo, `userReport` (da partida que ele jogou, ao vivo ou
  * instantânea) é obrigatório; os outros jogos são simulados pela IA com seeds fixas por jogo.
  */
-export function playRound(world: World, tournament: Tournament, userReport?: MatchReport): RoundOutcome {
+export function playRound(world: World, tournament: Tournament, userReport?: MatchReport, record?: MatchRecord): RoundOutcome {
   const t: Tournament = structuredClone(tournament);
   const fixtures = currentFixtures(t, world);
   const mine = fixtures.find((f) => f.home === t.userNationId || f.away === t.userNationId);
@@ -278,6 +333,7 @@ export function playRound(world: World, tournament: Tournament, userReport?: Mat
     const base = newCond[id] ?? (t.cond[id] as number);
     t.cond[id] = Math.min(100, Math.round((base + RECOVERY_PER_DAY * DAYS_BETWEEN_ROUNDS) * 10) / 10);
   }
+  if (record) t.userMatches.push(record);
   t.results.push(...results);
   t.stage = STAGE_ORDER[STAGE_ORDER.indexOf(t.stage) + 1] as Stage;
   if (t.stage === 'DONE') {

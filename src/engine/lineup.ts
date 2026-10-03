@@ -39,7 +39,7 @@ const condFactor = (p: Player) => 0.7 + 0.3 * (p.condition / 100);
 
 /**
  * Distribui jogadores nos slots da formação maximizando nota x encaixe (guloso, goleiro primeiro).
- * Devolve os ids na ordem dos slots.
+ * Devolve os ids na ordem dos slots; com menos jogadores que slots (após expulsão), os slots sem jogador ficam ''.
  */
 export function assignSlots(players: Player[], formation: Formation, score: (p: Player) => number = overall): string[] {
   const slots = FORMATION_SLOTS[formation];
@@ -58,7 +58,7 @@ export function assignSlots(players: Player[], formation: Formation, score: (p: 
         best = p;
       }
     }
-    if (!best) throw new Error('assignSlots: jogadores insuficientes');
+    if (!best) continue; // menos de 11 jogadores (expulsão): o slot fica vazio ('')
     result[i] = best.id;
     remaining.delete(best);
   }

@@ -52,6 +52,17 @@ export interface MatchOptions {
 
 export const MAX_SUBS = 5;
 
+/** Comandos do usuário durante a partida. A IA usa os mesmos efeitos, mas não os registra (são determinísticos). */
+export type MatchCommand =
+  | { kind: 'sub'; side: 0 | 1; outId: string; inId: string }
+  | { kind: 'tactics'; side: 0 | 1; tactics: Tactics };
+
+/** Comando + relógio exato (minutos, ponto flutuante) em que foi aplicado. Seed + lista = mesma partida. */
+export interface LoggedCommand {
+  at: number;
+  cmd: MatchCommand;
+}
+
 export interface LiveSide {
   onPitch: { id: string; slot: Slot; cond: number }[];
   bench: { id: string; cond: number }[];
@@ -162,6 +173,7 @@ export class MatchSimulator {
   private lastAiMinute = 0;
   private starters: [string[], string[]];
   private seed: number;
+  private log: LoggedCommand[] = [];
   /** Fator do ambiente de gols da era: divide-se entre mais posses e chances melhores. */
   private eraFactor = 1;
 
@@ -271,7 +283,36 @@ export class MatchSimulator {
 
   // ---------- comandos ----------
 
+  /** Relógio exato (sem arredondamento); é o `at` gravado no log de comandos. */
+  get clockExact(): number {
+    return this.clock;
+  }
+  /** Comandos aplicados até agora, na ordem. */
+  get commands(): readonly LoggedCommand[] {
+    return this.log;
+  }
+
+  /** Aplica um comando do usuário e o registra no log (só se teve efeito). */
+  execute(cmd: MatchCommand): boolean {
+    let ok = false;
+    if (cmd.kind === 'sub') ok = this.doSubstitute(cmd.side, cmd.outId, cmd.inId);
+    else {
+      this.doSetTactics(cmd.side, cmd.tactics);
+      ok = true;
+    }
+    if (ok) this.log.push({ at: this.clock, cmd });
+    return ok;
+  }
+
   substitute(side: Side, outId: string, inId: string): boolean {
+    return this.execute({ kind: 'sub', side, outId, inId });
+  }
+
+  setTactics(side: Side, tactics: Tactics): void {
+    this.execute({ kind: 'tactics', side, tactics });
+  }
+
+  private doSubstitute(side: Side, outId: string, inId: string): boolean {
     const s = this.sides[side];
     if (this.done || s.subs >= MAX_SUBS) return false;
     const out = s.players.find((x) => x.p.id === outId && x.onPitch);
@@ -291,7 +332,7 @@ export class MatchSimulator {
     return true;
   }
 
-  setTactics(side: Side, tactics: Tactics): void {
+  private doSetTactics(side: Side, tactics: Tactics): void {
     const s = this.sides[side];
     const changedFormation = tactics.formation !== s.tactics.formation;
     s.tactics = { ...tactics };
@@ -373,10 +414,10 @@ export class MatchSimulator {
     const diff = this.score[side] - this.score[other(side)];
     if (minute >= 70 && diff < 0 && s.aiMode !== 'attack') {
       s.aiMode = 'attack';
-      this.setTactics(side, { ...s.tactics, pressing: 0.75, lineHeight: 0.75, tempo: 0.8 });
+      this.doSetTactics(side, { ...s.tactics, pressing: 0.75, lineHeight: 0.75, tempo: 0.8 });
     } else if (minute >= 80 && diff > 0 && s.aiMode !== 'defend') {
       s.aiMode = 'defend';
-      this.setTactics(side, { ...s.tactics, pressing: 0.3, lineHeight: 0.2, tempo: 0.3 });
+      this.doSetTactics(side, { ...s.tactics, pressing: 0.3, lineHeight: 0.2, tempo: 0.3 });
     }
     const subMinutes = [58, 66, 74, 82, 100, 108];
     if (subMinutes.includes(minute) && s.subs < MAX_SUBS && (s.subs < 3 || minute >= 74)) {
@@ -387,7 +428,7 @@ export class MatchSimulator {
         const repl = s.players
           .filter((x) => !x.onPitch && !x.played && x.p.position === tired.p.position)
           .sort((a, b) => overall(b.p) * (0.7 + 0.3 * b.cond / 100) - overall(a.p) * (0.7 + 0.3 * a.cond / 100))[0];
-        if (repl) this.substitute(side, tired.p.id, repl.p.id);
+        if (repl) this.doSubstitute(side, tired.p.id, repl.p.id);
       }
     }
   }
@@ -784,6 +825,19 @@ export class MatchSimulator {
       minutes: this.extraTimeStarted ? 120 : 90,
     };
   }
+}
+
+/**
+ * Reproduz uma partida a partir da seed, das escalações e do log de comandos do usuário:
+ * avança até o relógio exato de cada comando, aplica e continua. O resultado é idêntico ao original.
+ */
+export function replayMatch(setups: [TeamSetup, TeamSetup], opts: MatchOptions, commands: readonly LoggedCommand[]): MatchReport {
+  const sim = new MatchSimulator(setups, opts);
+  for (const c of commands) {
+    sim.playUntil(c.at);
+    sim.execute(c.cmd);
+  }
+  return sim.playToEnd();
 }
 
 /** Simula a partida inteira de uma vez. */
