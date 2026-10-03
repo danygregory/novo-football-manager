@@ -1,0 +1,171 @@
+/** Tipos compartilhados: dados do mundo, tática, partida e persistência. Sem dependência de DOM. */
+
+export type Position = 'GK' | 'DEF' | 'MID' | 'FWD';
+
+/** Posição fina usada nas formações. */
+export type Slot = 'GK' | 'CB' | 'LB' | 'RB' | 'WB' | 'DM' | 'CM' | 'AM' | 'LW' | 'RW' | 'ST';
+
+export type Formation = '4-4-2' | '4-3-3' | '3-5-2' | '5-4-1';
+
+export type Zone = 'DEF' | 'MID' | 'ATT' | 'BOX';
+
+export type Continent = 'EU' | 'SA' | 'AF' | 'AS' | 'NA' | 'OC';
+
+export type Decade = 1950 | 1960 | 1970 | 1980 | 1990 | 2000 | 2010 | 2020;
+
+export type PlayStyle =
+  | 'retranca'
+  | 'posse'
+  | 'contra-ataque'
+  | 'jogo-direto'
+  | 'ofensivo'
+  | 'equilibrado';
+
+/** Atributos de 1 a 99. */
+export interface Attributes {
+  defesa: number;
+  passe: number;
+  drible: number;
+  finalizacao: number;
+  fisico: number;
+  velocidade: number;
+  /** Só relevante para goleiros; demais ficam baixos. */
+  goleiro: number;
+}
+
+export interface Player {
+  id: string;
+  name: string;
+  nationality: string;
+  position: Position;
+  slot: Slot;
+  age: number;
+  /** Estilo coerente com a era, ex.: "ponta driblador". */
+  style: string;
+  attrs: Attributes;
+  /** 0 a 100; cai com jogos, recupera entre eles. */
+  condition: number;
+}
+
+export interface NationEra {
+  id: string; // ex.: "BRA-1970"
+  country: string;
+  decade: Decade;
+  continent: Continent;
+  /** Elo médio da década. */
+  elo: number;
+  /** Força normalizada derivada do Elo (média do mundo = 1). */
+  strength: number;
+  playStyle: PlayStyle;
+  /** Média de gols por jogo da seleção na década. */
+  goalsFor: number;
+  goalsAgainst: number;
+  colors: { primary: string; secondary: string };
+  squad: Player[];
+}
+
+export interface DecadeStats {
+  decade: Decade;
+  /** Média de gols por jogo (soma dos dois times) em toda a base da década. */
+  goalsPerMatch: number;
+  matches: number;
+}
+
+export interface World {
+  version: number;
+  generatedFrom: string;
+  decades: DecadeStats[];
+  nations: NationEra[];
+}
+
+export interface Tactics {
+  formation: Formation;
+  /** 0..1 */
+  pressing: number;
+  /** 0..1 (0 = linha baixa, 1 = linha alta) */
+  lineHeight: number;
+  /** 0..1 (0 = cadenciado, 1 = acelerado) */
+  tempo: number;
+}
+
+export interface Lineup {
+  nationId: string;
+  tactics: Tactics;
+  /** 11 ids de titulares, na ordem dos slots da formação. */
+  starters: string[];
+  /** Ids do banco (até 12 restantes dos 23 convocados). */
+  bench: string[];
+}
+
+export type ShotType = 'trabalhada' | 'contra-ataque' | 'cruzamento' | 'bola-parada' | 'penalti';
+
+export type EventType =
+  | 'kickoff'
+  | 'pass-key'
+  | 'shot'
+  | 'goal'
+  | 'save'
+  | 'miss'
+  | 'foul'
+  | 'yellow'
+  | 'red'
+  | 'sub'
+  | 'tactic'
+  | 'halftime'
+  | 'fulltime'
+  | 'possession-change'
+  | 'penalty-shootout';
+
+export interface MatchEvent {
+  minute: number;
+  type: EventType;
+  /** 0 = mandante/time A, 1 = visitante/time B. */
+  team: 0 | 1;
+  zone: Zone;
+  playerId?: string;
+  secondaryPlayerId?: string;
+  shotType?: ShotType;
+  xg?: number;
+  text: string;
+}
+
+export interface TeamMatchStats {
+  possession: number; // 0..100
+  shots: number;
+  shotsOnTarget: number;
+  xg: number;
+  fouls: number;
+  yellows: number;
+  reds: number;
+}
+
+export interface MatchReport {
+  seed: number;
+  teams: [string, string]; // nationIds
+  score: [number, number];
+  /** Pênaltis (só no mata-mata empatado). */
+  shootout?: [number, number];
+  events: MatchEvent[];
+  stats: [TeamMatchStats, TeamMatchStats];
+  /** playerId -> nota 0..10. */
+  ratings: Record<string, number>;
+  /** playerId -> condição final. */
+  finalCondition: Record<string, number>;
+  minutes: number;
+}
+
+/** Persistência: interface estável; hoje IndexedDB, depois SQLite WASM. */
+export interface SaveSlotInfo {
+  id: string;
+  label: string;
+  updatedAt: number;
+}
+
+export interface SaveRepository {
+  list(): Promise<SaveSlotInfo[]>;
+  load(id: string): Promise<unknown | undefined>;
+  save(id: string, label: string, data: unknown): Promise<void>;
+  remove(id: string): Promise<void>;
+  exportJson(id: string): Promise<string>;
+  importJson(json: string): Promise<string>;
+}
