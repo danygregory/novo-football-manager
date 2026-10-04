@@ -160,6 +160,8 @@ export class Choreo {
   onLines: (lines: string[], ev: MatchEvent) => void = () => undefined;
   /** Fator de aceleração dos beats (ex.: 2 quando há fila acumulada). */
   private catchUp = 1;
+  /** Reduzir animações: sem câmera lenta nem pausas dramáticas nos lances. */
+  reduced = false;
 
   constructor(seed: number) {
     this.rng = new Rng(hashSeed(`${seed}:anim`));
@@ -292,10 +294,11 @@ export class Choreo {
           const crossing = ev.shotType === 'cruzamento';
           beats.push({ kind: 'pass', to: shooter, dur: crossing ? 0.65 : 0.4, lofted: crossing });
         }
-        beats.push({ kind: 'hold', dur: dramatic ? 0.35 : 0.12 });
-        beats.push({ kind: 'shot', side, outcome: out, dur: 0.55 * (out === 'goal' ? 1.8 : dramatic ? 1.3 : 1), holder: shooter });
+        const slow = this.reduced ? 1 : out === 'goal' ? 1.8 : dramatic ? 1.3 : 1;
+        beats.push({ kind: 'hold', dur: this.reduced ? 0.1 : dramatic ? 0.35 : 0.12 });
+        beats.push({ kind: 'shot', side, outcome: out, dur: 0.55 * slow, holder: shooter });
         commitAfter = beats.length - 1;
-        if (dramatic) beats.push({ kind: 'hold', dur: out === 'goal' ? 1.1 : 0.5 });
+        if (dramatic) beats.push({ kind: 'hold', dur: this.reduced ? 0.4 : out === 'goal' ? 1.1 : 0.5 });
         if (ev.type === 'goal' || dramatic || chain.length) lines = this.buildUp(ev, chain, names);
         break;
       }

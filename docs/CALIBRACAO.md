@@ -6,10 +6,10 @@
 
 | Métrica | Alvo | Resultado (20.000 jogos) |
 | --- | --- | --- |
-| Gols por jogo | 2,5 a 2,8 | 2,63 |
-| Empates | 23% a 28% | 25,5% |
+| Gols por jogo | 2,5 a 2,8 | 2,65 |
+| Empates | 23% a 28% | 24,9% |
 | Mais forte vence mais, com zebras em toda faixa | sim | sim (zebra de 10% a 33%) |
-| Mesma década: gols a até 0,3 da média real | todas as décadas | todas (maior desvio: 0,14 em 1960) |
+| Mesma década: gols a até 0,3 da média real | todas as décadas | todas (maior desvio: 0,18 em 1980) |
 
 ## Referência real por faixa de diferença de Elo
 
@@ -45,10 +45,11 @@ Os gols por jogo variam muito entre décadas (3,74 em 1950, 2,26 em 1980, entre 
 | `offsideBase` | 0,09 | Impedimento: `0,09 x (0,4 + 1,3 x linha adversária)`, x1,3 em contra-ataque, x1,8 em bola longa |
 | `hardSaveXg` / `bigChanceXg` / `postShare` | 0,15 / 0,11 / 0,07 | Defesa difícil, chance clara perdida e trave (sem sorteio extra: classificam o mesmo chute) |
 | `tactics` | attackTempo 0,3 · attackLine 0,2 · pressRecover 0,3 · defLineCompact 0,18 | Postura tática (ver abaixo) |
+| `injuryPerMinute` | 0,00035 | Lesão por jogador por minuto (cresce com o cansaço); cerca de 0,35 por time por jogo |
 | `foulBase`, `yellowPerFoul`, `redPerFoul` | 0,10 · 0,16 · 0,006 | Faltas e cartões (não calibrados contra dados reais) |
 | `fatigue`, `fatigueImpact` | base 0,08, pressão 0,12, ritmo 0,06, linha 0,03; 0,3 | Fadiga por minuto e peso na força |
 
-Os valores saíram de uma busca por coordenadas (`scripts/tune.ts`) que minimiza o desvio dos alvos acima, com a mesma seed em todas as avaliações. Resultado: 2,63 gols/jogo, 25,5% de empates, todas as décadas a até 0,14 da média real.
+Os valores saíram de uma busca por coordenadas (`scripts/tune.ts`) que minimiza o desvio dos alvos acima, com a mesma seed em todas as avaliações. Resultado final (depois da Fase 6.5, com lesões e a IA usando gritos e mudança de formação): 2,65 gols/jogo, 24,9% de empates, todas as décadas a até 0,18 da média real.
 
 ## Novos eventos (Fase 6.5, etapa 2)
 

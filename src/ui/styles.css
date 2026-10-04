@@ -166,3 +166,11 @@ tr.me td { color: var(--accent); font-weight: 650; }
 .choices { display: grid; gap: 10px; }
 .choices button { text-align: left; display: grid; gap: 4px; padding: .8em 1em; }
 .choices button span { color: var(--muted); font-size: .88rem; }
+
+.toggle { font-size: .85rem; display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+.app.reduced .shake, .app.reduced .score .bump, .app.reduced .goal-banner, .app.reduced .blink td { animation: none; }
+.app.reduced .blink td { background: rgba(239,106,91,.2); }
+.livepanel .lp-row { margin: 8px 0; }
+.momentum { display: flex; height: 12px; border-radius: 99px; overflow: hidden; background: var(--panel-2); margin-top: 4px; border: 1px solid var(--line); }
+.momentum.thin { height: 7px; }
+.momentum i { display: block; height: 100%; transition: width .6s ease; }

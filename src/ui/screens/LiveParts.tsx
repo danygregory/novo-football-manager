@@ -425,3 +425,42 @@ function ShootoutOrder({ state, userSide, busy, onConfirm }: { state: LiveState;
     </div>
   );
 }
+
+// ---------- painel ao vivo ----------
+
+export function LivePanel({ state, userSide, colors }: { state: LiveState; userSide: 0 | 1; colors: readonly [string, string] }) {
+  const mine = state.momentum;
+  const myShare = userSide === 0 ? mine : 1 - mine;
+  const xgMine = state.stats[userSide].xg;
+  const xgTheirs = state.stats[userSide === 0 ? 1 : 0].xg;
+  const xgTotal = xgMine + xgTheirs || 1;
+  const side = state.sides[userSide];
+  const avg = side.onPitch.reduce((s, p) => s + p.cond, 0) / Math.max(1, side.onPitch.length);
+  const tired = side.onPitch.filter((p) => p.cond < 60).length;
+  const label = myShare > 0.62 ? 'Você pressiona' : myShare < 0.38 ? 'Adversário pressiona' : 'Jogo equilibrado';
+  const pctMine = Math.round(myShare * 100);
+  return (
+    <div className="panel livepanel">
+      <h3>Painel ao vivo</h3>
+      <div className="lp-row">
+        <div className="row between muted"><span>Momento (últimos 10')</span><span>{label}</span></div>
+        <div className="momentum" title={`Seu time ${pctMine}% x ${100 - pctMine}%`}>
+          <i style={{ width: `${pctMine}%`, background: colors[userSide] }} />
+          <i style={{ width: `${100 - pctMine}%`, background: colors[userSide === 0 ? 1 : 0] }} />
+        </div>
+      </div>
+      <div className="lp-row">
+        <div className="row between muted"><span>xG acumulado</span><span><b>{xgMine.toFixed(2)}</b> x {xgTheirs.toFixed(2)}</span></div>
+        <div className="momentum thin">
+          <i style={{ width: `${(xgMine / xgTotal) * 100}%`, background: colors[userSide] }} />
+          <i style={{ width: `${(xgTheirs / xgTotal) * 100}%`, background: colors[userSide === 0 ? 1 : 0] }} />
+        </div>
+      </div>
+      <div className="lp-row">
+        <div className="row between muted"><span>Fadiga do seu time</span><span className={tired ? 'bad' : ''}>{Math.round(avg)}% · {tired} cansado{tired === 1 ? '' : 's'}</span></div>
+        <Bar value={avg} kind="cond" />
+      </div>
+      <div className="muted" style={{ fontSize: '.8rem' }}>Finalizações {state.stats[userSide].shots} x {state.stats[userSide === 0 ? 1 : 0].shots} · no alvo {state.stats[userSide].shotsOnTarget} x {state.stats[userSide === 0 ? 1 : 0].shotsOnTarget}</div>
+    </div>
+  );
+}

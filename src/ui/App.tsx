@@ -28,8 +28,30 @@ interface Game {
 
 const FRESH: Game = { screen: 'home', called: [] };
 
+const SETTINGS_KEY = 'novo-fm-settings';
+
+function loadSettings(): { reduceMotion?: boolean } {
+  try {
+    return JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') as { reduceMotion?: boolean };
+  } catch {
+    return {};
+  }
+}
+
 export function App() {
   const [g, setG] = useState<Game>(FRESH);
+  const [settings, setSettings] = useState(loadSettings);
+  const systemReduced = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const reduced = settings.reduceMotion ?? systemReduced;
+  const toggleReduced = () => {
+    const next = { ...settings, reduceMotion: !reduced };
+    setSettings(next);
+    try {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
+    } catch {
+      /* sem armazenamento: a escolha vale só nesta sessão */
+    }
+  };
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
 
@@ -98,7 +120,7 @@ export function App() {
   const user = g.nationId ? nationsById.get(g.nationId) : undefined;
 
   return (
-    <div className="app">
+    <div className={`app ${reduced ? 'reduced' : ''}`}>
       <header className="topbar">
         <div className="brand">NOVO <span>FM</span></div>
         <div className="crumbs">
@@ -110,6 +132,9 @@ export function App() {
             </>
           )}
         </div>
+        <label className="muted toggle" title="Desliga câmera lenta, tremida, confete, replay automático e acelerações do ritmo. Também respeita a preferência do sistema.">
+          <input type="checkbox" checked={reduced} onChange={toggleReduced} /> Reduzir animações
+        </label>
         {g.screen !== 'home' && !busy && (
           <button className="ghost" onClick={() => { if (!t || confirm('Voltar ao início? A Copa atual será perdida.')) setG(FRESH); }}>Início</button>
         )}
@@ -159,7 +184,7 @@ export function App() {
       )}
 
       {g.screen === 'live' && g.live && (
-        <LiveMatch key={g.live.start.fixture.id} start={g.live.start} speed0={g.live.speed} onFinished={(r, rec) => void finishLive(r, rec)} onBack={() => void exitLive()} />
+        <LiveMatch key={g.live.start.fixture.id} start={g.live.start} speed0={g.live.speed} reduced={reduced} onFinished={(r, rec) => void finishLive(r, rec)} onBack={() => void exitLive()} />
       )}
 
       {g.screen === 'post' && g.last && t && (

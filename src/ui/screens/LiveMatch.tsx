@@ -7,7 +7,7 @@ import { NationName } from '../components/common';
 import { engine } from '../engineClient';
 import { Choreo, type Fx, type PlayerBrief } from '../pitch/choreo';
 import { PitchView, type DotMeta } from '../pitch/PitchView';
-import { ChangesPanel, DecisionModal, HalftimeScreen, QuickSub, ShoutBar, TeamPanel } from './LiveParts';
+import { ChangesPanel, DecisionModal, HalftimeScreen, LivePanel, QuickSub, ShoutBar, TeamPanel } from './LiveParts';
 import { nationsById, playerById } from '../world';
 
 export interface LiveStart extends MatchDelta {
@@ -76,7 +76,7 @@ interface Model {
   decisionShown: boolean;
 }
 
-export function LiveMatch({ start, speed0, onFinished, onBack }: { start: LiveStart; speed0: Speed; onFinished: (report: MatchReport, record: MatchRecord) => void; onBack: () => void }) {
+export function LiveMatch({ start, speed0, reduced, onFinished, onBack }: { start: LiveStart; speed0: Speed; reduced: boolean; onFinished: (report: MatchReport, record: MatchRecord) => void; onBack: () => void }) {
   const { fixture, userSide } = start;
   const nations = [nationsById.get(fixture.home)!, nationsById.get(fixture.away)!] as const;
   const mine = nations[userSide];
@@ -88,6 +88,8 @@ export function LiveMatch({ start, speed0, onFinished, onBack }: { start: LiveSt
     return [c0, c1] as const;
   }, [nations]);
 
+  const reducedRef = useRef(reduced);
+  reducedRef.current = reduced;
   const host = useRef<HTMLDivElement>(null);
   const wrap = useRef<HTMLDivElement>(null);
   const pitch = useRef<PitchView | undefined>(undefined);
@@ -164,7 +166,7 @@ export function LiveMatch({ start, speed0, onFinished, onBack }: { start: LiveSt
       m.score[ev.team]++;
       m.scoreBump++;
       m.flash = { title: 'GOL!', sub: `${playerById(ev.playerId ?? '')?.name ?? ''} · ${ev.minute}' · ${nationsById.get(ev.team === 0 ? fixture.home : fixture.away)?.country}` };
-      m.replayAt = performance.now() + 2400;
+      m.replayAt = reducedRef.current ? 0 : performance.now() + 2400;
       setTimeout(() => {
         if (model.current.flash?.title === 'GOL!') {
           model.current.flash = undefined;
@@ -188,9 +190,9 @@ export function LiveMatch({ start, speed0, onFinished, onBack }: { start: LiveSt
     if (fx.kind === 'net') pitch.current?.netRippleFor(fx.side === 0 ? 0 : 1);
     if (fx.kind === 'goal') {
       pitch.current?.confetti([colors[fx.side], nations[fx.side].colors.secondary, '#ffffff'], fx.side);
-      m.shake = performance.now() + 650;
+      m.shake = reducedRef.current ? 0 : performance.now() + 650;
     }
-    if (fx.kind === 'post') m.shake = performance.now() + 250;
+    if (fx.kind === 'post' && !reducedRef.current) m.shake = performance.now() + 250;
   };
 
   const feedBuildUp = (lines: string[], ev: MatchEvent) => {
@@ -246,6 +248,7 @@ export function LiveMatch({ start, speed0, onFinished, onBack }: { start: LiveSt
     const ahead = m.buffer.find((e) => SHOT_TYPES.has(e.type));
     const soonDanger = ahead && (ahead.t ?? 0) - m.displayClock < 0.7;
     const q = choreo.pending;
+    if (reducedRef.current) return q >= 4 ? 0.5 : 1;
     let w = 1;
     if (q >= 4) w = 0.25;
     else if (q >= 2) w = 0.55;
@@ -254,8 +257,17 @@ export function LiveMatch({ start, speed0, onFinished, onBack }: { start: LiveSt
     return w;
   };
 
+  const pitchReduced = () => pitch.current?.setReducedMotion(reducedRef.current);
+
+  useEffect(() => {
+    choreo.reduced = reduced;
+    pitch.current?.setReducedMotion(reduced);
+  }, [reduced, choreo]);
+
   // campo Pixi + coreografia
   useEffect(() => {
+    choreo.reduced = reducedRef.current;
+    pitchReduced();
     choreo.onCommit = commit;
     choreo.onFx = onFx;
     choreo.onLines = feedBuildUp;
@@ -264,6 +276,7 @@ export function LiveMatch({ start, speed0, onFinished, onBack }: { start: LiveSt
     let cancelled = false;
     void pv.init().then(() => {
       if (cancelled) return;
+      pv.setReducedMotion(reducedRef.current);
       syncLineups();
       // coloca todos nas posições-base antes do apito
       choreo.advance(2);
@@ -523,6 +536,7 @@ export function LiveMatch({ start, speed0, onFinished, onBack }: { start: LiveSt
           {panel && <ChangesPanel state={m.state} userSide={userSide} busy={busy} onClose={closePanel} send={send} />}
         </div>
         <div className="side-col">
+          <LivePanel state={m.state} userSide={userSide} colors={colors} />
           <TeamPanel state={m.state} userSide={userSide} onPick={pickQuick} />
         <div className="panel feed">
           <h3>Narração</h3>
