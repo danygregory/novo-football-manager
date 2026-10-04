@@ -137,7 +137,10 @@ export function LiveMatch({ start, speed0, onFinished, onBack }: { start: LiveSt
 
   const syncLineups = () => {
     const m = model.current;
-    choreo.setLineups(briefs(m.state), [m.state.sides[0].tactics.lineHeight, m.state.sides[1].tactics.lineHeight]);
+    choreo.setLineups(briefs(m.state), [
+      { line: m.state.sides[0].tactics.lineHeight, press: m.state.sides[0].tactics.pressing },
+      { line: m.state.sides[1].tactics.lineHeight, press: m.state.sides[1].tactics.pressing },
+    ]);
     const metas: DotMeta[] = [];
     ([0, 1] as const).forEach((side) => {
       for (const p of m.state.sides[side].onPitch) {
@@ -281,6 +284,7 @@ export function LiveMatch({ start, speed0, onFinished, onBack }: { start: LiveSt
     const pos = new Map<string, { x: number; y: number }>();
     for (const a of choreo.agents.values()) pos.set(a.id, { x: a.x, y: a.y });
     pv.draw(pos, choreo.ball);
+    if (pv.debugging) pv.drawDebug([...choreo.agents.values()]);
   };
 
   const startReplay = () => {
@@ -299,6 +303,19 @@ export function LiveMatch({ start, speed0, onFinished, onBack }: { start: LiveSt
     drawNow();
     render();
   };
+
+  // tecla D: sobreposição de depuração (alvo e velocidade de cada jogador)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== 'd' || e.ctrlKey || e.metaKey || e.altKey) return;
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+      const pv = pitch.current;
+      if (pv) pv.setDebug(!pv.debugging);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   // laço de reprodução
   useEffect(() => {

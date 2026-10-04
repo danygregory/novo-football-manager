@@ -16,7 +16,7 @@ function briefs(): PlayerBrief[] {
 
 function make(seed = 1): Choreo {
   const c = new Choreo(seed);
-  c.setLineups(briefs(), [0.5, 0.5]);
+  c.setLineups(briefs(), [{ line: 0.5, press: 0.5 }, { line: 0.5, press: 0.5 }]);
   c.advance(2);
   return c;
 }
@@ -100,5 +100,125 @@ describe('coreografia', () => {
     c.flush();
     expect(seen).toEqual(['advance', 'goal', 'yellow']);
     expect(c.pending).toBe(0);
+  });
+});
+
+import worldJson from '../../../data/world.json';
+import { autoLineup, autoSquad23, tacticsForStyle } from '../../engine/lineup';
+import { MatchSimulator, type TeamSetup } from '../../engine/match';
+import type { NationEra } from '../../engine/types';
+
+const nations = (worldJson as unknown as { nations: NationEra[] }).nations;
+
+function realMatchChoreo(seed: number): { choreo: Choreo; events: MatchEvent[] } {
+  const mk = (id: string): TeamSetup => {
+    const n = nations.find((x) => x.id === id)!;
+    const squad = autoSquad23(n.squad);
+    return { nationId: id, name: n.country, squad, lineup: autoLineup(id, squad, tacticsForStyle(n.playStyle)), ai: true };
+  };
+  const sim = new MatchSimulator([mk('BRA-1970'), mk('GER-1980')], { seed });
+  sim.playThrough(60);
+  const st = sim.liveState();
+  const players = new Map(nations.flatMap((n) => n.squad.map((p) => [p.id, p] as const)));
+  const lineups: PlayerBrief[] = [];
+  ([0, 1] as const).forEach((side) =>
+    st.sides[side].onPitch.forEach((o) => {
+      const p = players.get(o.id)!;
+      lineups.push({ id: o.id, name: p.name, side, slot: o.slot, speed: p.attrs.velocidade, skill: (p.attrs.passe + p.attrs.drible) / 2, iq: (p.attrs.defesa + p.attrs.passe) / 2, cond: 95, keeper: o.slot === 'GK' });
+    }),
+  );
+  const c = new Choreo(seed);
+  c.setLineups(lineups, [{ line: 0.5, press: 0.5 }, { line: 0.5, press: 0.5 }]);
+  c.advance(2);
+  return { choreo: c, events: sim.eventLog.filter((e) => (e.t ?? 0) < 40) as MatchEvent[] };
+}
+
+function pearson(a: number[], b: number[]): number {
+  const n = Math.min(a.length, b.length);
+  const ma = a.reduce((s, v) => s + v, 0) / n;
+  const mb = b.reduce((s, v) => s + v, 0) / n;
+  let sab = 0, saa = 0, sbb = 0;
+  for (let i = 0; i < n; i++) {
+    sab += (a[i]! - ma) * (b[i]! - mb);
+    saa += (a[i]! - ma) ** 2;
+    sbb += (b[i]! - mb) ** 2;
+  }
+  return saa > 0 && sbb > 0 ? sab / Math.sqrt(saa * sbb) : 0;
+}
+
+describe('movimento independente', () => {
+  it('em 60 s de partida a correlação média da velocidade horizontal entre companheiros fica abaixo de 0,7', () => {
+    const results: number[] = [];
+    for (const seed of [11, 12, 13]) {
+      const { choreo, events } = realMatchChoreo(seed);
+      const queue = [...events];
+      const series = new Map<string, number[]>();
+      const t0 = choreo.time;
+      const names2 = (id: string) => id;
+      while (choreo.time - t0 < 60) {
+        while (queue.length && (queue[0]!.t ?? 0) * 1.6 <= choreo.time - t0) choreo.push(queue.shift() as MatchEvent, names2);
+        choreo.advance(0.1);
+        for (const a of choreo.agents.values()) (series.get(a.id) ?? series.set(a.id, []).get(a.id)!).push(a.vx * (a.side === 0 ? 1 : -1));
+      }
+      for (const side of [0, 1] as const) {
+        const ids = [...choreo.agents.values()].filter((a) => a.side === side && !a.keeper).map((a) => a.id);
+        const cors: number[] = [];
+        for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++) cors.push(pearson(series.get(ids[i]!)!, series.get(ids[j]!)!));
+        results.push(cors.reduce((s, v) => s + v, 0) / cors.length);
+      }
+    }
+    const mean = results.reduce((s, v) => s + v, 0) / results.length;
+    console.log('correlação média de velocidade horizontal entre companheiros:', mean.toFixed(3));
+    expect(mean).toBeLessThan(0.7);
+  });
+
+  it('o finalizador chega ao ponto da área antes de receber a bola e chutar', () => {
+    const c = make(21);
+    const shooter = c.agents.get('0-9')!;
+    let arrived = Infinity;
+    c.onCommit = () => {
+      arrived = Math.hypot(shooter.x - (FIELD_W - 13), shooter.y - FIELD_H / 2);
+    };
+    c.push(ev('goal', { playerId: '0-9', secondaryPlayerId: '0-7', shotType: 'trabalhada', zone: 'BOX' }), names);
+    c.advance(10);
+    expect(arrived).toBeLessThan(12); // estava dentro da área (entre 10 e 16 m do gol, com folga lateral)
+    expect(shooter.x).toBeGreaterThan(FIELD_W - 30);
+  });
+
+  it('no máximo 2 jogadores pressionam o portador', () => {
+    const c = make(31);
+    c.push(ev('advance', { zone: 'ATT' }), names);
+    let maxPress = 0;
+    for (let k = 0; k < 60 * 6; k++) {
+      c.advance(STEP);
+      maxPress = Math.max(maxPress, [...c.agents.values()].filter((a) => a.pressing).length);
+    }
+    expect(maxPress).toBeLessThanOrEqual(2);
+  });
+
+  it('o rápido percorre mais que o lento ao correr para o mesmo ponto', () => {
+    const c = make(41);
+    const list = [...c.agents.values()].filter((a) => a.side === 0 && !a.keeper);
+    const fast = list.sort((a, b) => b.vmax - a.vmax)[0]!;
+    const slow = list.sort((a, b) => a.vmax - b.vmax)[0]!;
+    for (const a of [fast, slow]) {
+      a.x = 10;
+      a.y = a.id === fast.id ? 20 : 48;
+      a.vx = 0;
+      a.vy = 0;
+      a.override = { x: 95, y: a.y, until: c.time + 20 };
+    }
+    c.advance(2.2);
+    expect(fast.x - 10).toBeGreaterThan((slow.x - 10) * 1.15);
+  });
+
+  it('em 4x os passos continuam fixos: o mesmo tempo em quadros diferentes dá o mesmo resultado', () => {
+    const run = (chunks: number) => {
+      const c = make(51);
+      c.push(ev('advance', { zone: 'ATT' }), names);
+      for (let i = 0; i < chunks; i++) c.advance(8 / chunks);
+      return [...c.agents.values()].map((a) => `${a.x.toFixed(2)},${a.y.toFixed(2)}`).join('|');
+    };
+    expect(run(8)).toBe(run(160));
   });
 });

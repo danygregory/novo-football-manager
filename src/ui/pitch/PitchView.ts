@@ -47,6 +47,8 @@ export class PitchView {
   /** Rótulo "REPLAY" e similares desenhados pelo próprio campo. */
   private banner = new Text({ text: '', style: new TextStyle({ fontFamily: 'system-ui, sans-serif', fontSize: 30, fontWeight: '800', fill: 0xf2c744, stroke: { color: 0x000000, width: 5 } }) });
   private lastTick = 0;
+  private debug = new Graphics();
+  private debugOn = false;
 
   constructor(private host: HTMLElement) {}
 
@@ -64,6 +66,7 @@ export class PitchView {
     this.app.stage.addChild(this.layer);
     this.ball.circle(0, 0, 6.5).fill(0xffffff).stroke({ color: 0x222222, width: 1.5 });
     this.ballShadow.circle(0, 0, 6).fill({ color: 0x000000, alpha: 0.28 });
+    this.app.stage.addChild(this.debug);
     this.app.stage.addChild(this.ballShadow, this.ball, this.fx);
     this.banner.anchor.set(0.5);
     this.banner.position.set(PITCH_W / 2, 52);
@@ -155,6 +158,31 @@ export class PitchView {
     this.ball.position.set(b.x, b.y - ball.z * 3.2);
     this.ballShadow.position.set(b.x + ball.z * 1.4, b.y + 2);
     this.ballShadow.scale.set(1 + ball.z * 0.06);
+  }
+
+  /** Sobreposição de depuração (tecla D): alvo e vetor de velocidade de cada jogador. */
+  setDebug(on: boolean): void {
+    this.debugOn = on;
+    if (!on) this.debug.clear();
+  }
+
+  get debugging(): boolean {
+    return this.debugOn;
+  }
+
+  drawDebug(list: { x: number; y: number; tx: number; ty: number; vx: number; vy: number; pressing: boolean; side: 0 | 1 }[]): void {
+    if (!this.ready || !this.debugOn) return;
+    const g = this.debug;
+    g.clear();
+    for (const a of list) {
+      const p = this.px(a.x, a.y);
+      const t = this.px(a.tx, a.ty);
+      const color = a.pressing ? 0xff4d4d : a.side === 0 ? 0xffe066 : 0x9ad1ff;
+      g.moveTo(p.x, p.y).lineTo(t.x, t.y).stroke({ color, width: 1, alpha: 0.55 });
+      g.circle(t.x, t.y, 3).fill({ color, alpha: 0.8 });
+      const v = this.px(a.x + a.vx * 0.5, a.y + a.vy * 0.5);
+      g.moveTo(p.x, p.y).lineTo(v.x, v.y).stroke({ color: 0xffffff, width: 2, alpha: 0.9 });
+    }
   }
 
   setBanner(text: string): void {
