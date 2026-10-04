@@ -11,3 +11,4 @@ export * from './narration';
 export * from './tournament';
 export * from './career';
 export * from './scoring';
+export * from './daily';

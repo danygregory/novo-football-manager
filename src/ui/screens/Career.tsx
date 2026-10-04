@@ -5,7 +5,7 @@ import type { NationEra } from '../../engine/types';
 import { Bar, Kit, STYLE_LABEL } from '../components/common';
 import { eraSpan, nationLabel, nationsById, world } from '../world';
 
-function TeamCard({ n, onPick, label }: { n: NationEra; onPick: () => void; label: string }) {
+export function TeamCard({ n, onPick, label }: { n: NationEra; onPick: () => void; label: string }) {
   const star = useMemo(() => squadOf(n).find((p) => p.star), [n]);
   const pot = worldPot(world, n.elo);
   return (

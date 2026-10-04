@@ -11,6 +11,8 @@ import { engine } from './engineClient';
 import { Cup } from './screens/Cup';
 import { CupEnd } from './screens/CupEnd';
 import { Achievements } from './screens/Achievements';
+import { DailyIntro, DailyShare } from './screens/Daily';
+import { bestOfDay, dailySeed, dailyTeam, shareText, type DailyRecord } from '../engine/daily';
 import { ScoreCard } from './screens/ScoreCard';
 import { addToRanking, newAchievements, rankingEntry, summarizeCup, type Achievement, type CupSummary, type RankingEntry } from '../engine/scoring';
 import { CareerAfterCup, CareerChoose, CareerHome } from './screens/Career';
@@ -18,7 +20,6 @@ import { CupSetup } from './screens/CupSetup';
 import { DraftBoard } from './screens/DraftBoard';
 import { DraftSetup } from './screens/DraftSetup';
 import { Home } from './screens/Home';
-import { ModeSelect } from './screens/ModeSelect';
 import { LiveMatch, type LiveStart } from './screens/LiveMatch';
 import { MatchIntro } from './screens/Match';
 import { PickNation } from './screens/PickNation';
@@ -26,18 +27,20 @@ import { PostMatch } from './screens/PostMatch';
 import { PenaltyDemo } from './screens/PenaltyDemo';
 import { Squad } from './screens/Squad';
 import { Tactics } from './screens/Tactics';
-import { nationLabel, nationsById, registerCustom, world } from './world';
+import { eraSpan, nationLabel, nationsById, registerCustom, world } from './world';
 
-type Screen = 'home' | 'achievements' | 'mode' | 'careerStart' | 'careerHome' | 'pick' | 'squad' | 'draftSetup' | 'draft' | 'tactics' | 'cupSetup' | 'cup' | 'match' | 'live' | 'post' | 'end';
+type Screen = 'home' | 'achievements' | 'dailyIntro' | 'careerStart' | 'careerHome' | 'pick' | 'squad' | 'draftSetup' | 'draft' | 'tactics' | 'cupSetup' | 'cup' | 'match' | 'live' | 'post' | 'end';
 
 interface Game {
   screen: Screen;
   /** Seleção pronta ou time montado no draft. */
-  mode?: 'ready' | 'draft' | 'career';
+  mode?: 'ready' | 'draft' | 'career' | 'daily';
+  /** Data (aaaa-mm-dd) do desafio do dia em andamento. */
+  dailyDate?: string;
   career?: Career;
   careerApplied?: boolean;
   /** Pontuação e conquistas da Copa que acabou de terminar (calculadas uma vez). */
-  scored?: { summary: CupSummary; achievements: Achievement[] };
+  scored?: { summary: CupSummary; achievements: Achievement[]; daily?: DailyRecord };
   careerResult?: { delta: number; ev: CupEvaluation };
   draftConfig?: DraftConfig;
   draft?: DraftState;
@@ -109,9 +112,9 @@ function MainApp() {
     }
   };
 
-  const startCup = (lineup: Lineup, cut: Cut) =>
+  const startCup = (lineup: Lineup, cut: Cut, fixedSeed?: number) =>
     guarded(async () => {
-      const seed = Math.floor(Math.random() * 2 ** 32);
+      const seed = fixedSeed ?? Math.floor(Math.random() * 2 ** 32);
       const custom = g.mode === 'draft' ? nationsById.get(g.nationId as string) : undefined;
       const tournament = await engine.call('createTournament', { nationId: g.nationId as string, squad: g.called, lineup, seed, cut, custom: custom?.custom ? custom : undefined });
       setG((prev) => ({ ...prev, lineup, cut, tournament, screen: 'cup', last: undefined, scored: undefined }));
@@ -192,7 +195,7 @@ function MainApp() {
     const already = new Set(Object.keys(loadJson<Record<string, string>>(KEYS.achievements) ?? {}));
     const achievements = newAchievements(
       summary,
-      { daily: false, careerTitles: career?.entries.filter((e) => e.champion).length, careerRep: g.mode === 'career' ? career?.rep : undefined, previousCups: stats.cups },
+      { daily: g.mode === 'daily', careerTitles: career?.entries.filter((e) => e.champion).length, careerRep: g.mode === 'career' ? career?.rep : undefined, previousCups: stats.cups },
       already,
     );
     const date = todayIso();
@@ -200,7 +203,17 @@ function MainApp() {
     const team = nationsById.get(t0.userNationId)?.country ?? t0.userNationId;
     saveJson(KEYS.ranking, addToRanking(loadJson<RankingEntry[]>(KEYS.ranking) ?? [], rankingEntry(summary, g.mode ?? 'ready', team, date)));
     saveJson(KEYS.stats, { cups: stats.cups + 1 });
-    setG((prev) => ({ ...prev, career, careerApplied: prev.mode === 'career' ? true : prev.careerApplied, careerResult, scored: { summary, achievements } }));
+    let dailyRecord: DailyRecord | undefined;
+    if (g.mode === 'daily' && g.dailyDate) {
+      const dayTeam = dailyTeam(world, g.dailyDate);
+      const text = shareText(g.dailyDate, dayTeam, summary, `${dayTeam.country} ${eraSpan(dayTeam)}`);
+      const all = loadJson<Record<string, DailyRecord>>(KEYS.daily) ?? {};
+      dailyRecord = bestOfDay(all[g.dailyDate], { date: g.dailyDate, points: summary.total, stageText: summary.stageText, champion: summary.ev.champion, text });
+      // o texto compartilhado mostra a campanha desta partida; o melhor do dia fica salvo
+      saveJson(KEYS.daily, { ...all, [g.dailyDate]: dailyRecord });
+      dailyRecord = { date: g.dailyDate, points: summary.total, stageText: summary.stageText, champion: summary.ev.champion, text };
+    }
+    setG((prev) => ({ ...prev, career, careerApplied: prev.mode === 'career' ? true : prev.careerApplied, careerResult, scored: { summary, achievements, daily: dailyRecord } }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [g.screen]);
 
@@ -243,17 +256,37 @@ function MainApp() {
 
       {error && <div className="error">Erro: {error}</div>}
 
-      {g.screen === 'home' && <Home canLoad={false} onNew={() => go({ screen: 'mode' })} onLoad={() => undefined} onAchievements={() => go({ screen: 'achievements' })} />}
+      {g.screen === 'home' && (
+        <Home
+          canLoad={false}
+          onLoad={() => undefined}
+          onAchievements={() => go({ screen: 'achievements' })}
+          modes={{
+            onCareer: openCareer,
+            hasCareer: !!loadJson<Career>(KEYS.career)?.entries,
+            onDaily: () => {
+              registerCustom(undefined);
+              go({ mode: 'daily', dailyDate: todayIso(), screen: 'dailyIntro' });
+            },
+            dailyDone: !!loadJson<Record<string, DailyRecord>>(KEYS.daily)?.[todayIso()],
+            onDraft: () => go({ mode: 'draft', screen: 'draftSetup' }),
+            onReady: () => {
+              registerCustom(undefined);
+              go({ mode: 'ready', screen: 'pick' });
+            },
+          }}
+        />
+      )}
 
       {g.screen === 'achievements' && <Achievements onBack={() => go({ screen: 'home' })} />}
 
-      {g.screen === 'mode' && (
-        <ModeSelect
-          onCareer={openCareer}
-          hasCareer={!!loadJson<Career>(KEYS.career)?.entries}
+      {g.screen === 'dailyIntro' && g.dailyDate && (
+        <DailyIntro
+          date={g.dailyDate}
+          team={dailyTeam(world, g.dailyDate)}
+          best={loadJson<Record<string, DailyRecord>>(KEYS.daily)?.[g.dailyDate]}
           onBack={() => go({ screen: 'home' })}
-          onReady={() => { registerCustom(undefined); go({ mode: 'ready', screen: 'pick' }); }}
-          onDraft={() => go({ mode: 'draft', screen: 'draftSetup' })}
+          onPlay={() => go({ nationId: dailyTeam(world, g.dailyDate as string).id, called: [], lineup: undefined, scored: undefined, tournament: undefined, screen: 'squad' })}
         />
       )}
 
@@ -262,7 +295,7 @@ function MainApp() {
           title="Comece sua carreira"
           subtitle="Três seleções sorteadas entre as mais fracas (potes 3 e 4). Escolha uma e faça história."
           ids={g.career.startOptions ?? []}
-          onBack={() => go({ screen: 'mode' })}
+          onBack={() => go({ screen: 'home' })}
           onPick={(id) => {
             const career = persistCareer(takeTeam(g.career as Career, id));
             go({ career, screen: 'careerHome' });
@@ -273,7 +306,7 @@ function MainApp() {
       {g.screen === 'careerHome' && g.career && (
         <CareerHome
           career={g.career}
-          onBack={() => go({ screen: 'mode' })}
+          onBack={() => go({ screen: 'home' })}
           onAbandon={() => {
             removeKey(KEYS.career);
             resetAll();
@@ -286,17 +319,17 @@ function MainApp() {
       )}
 
       {g.screen === 'pick' && (
-        <PickNation initial={g.nationId} onBack={() => go({ screen: 'mode' })} onPick={(id) => go({ nationId: id, called: id === g.nationId ? g.called : [], lineup: undefined, screen: 'squad' })} />
+        <PickNation initial={g.nationId} onBack={() => go({ screen: 'home' })} onPick={(id) => go({ nationId: id, called: id === g.nationId ? g.called : [], lineup: undefined, screen: 'squad' })} />
       )}
 
-      {g.screen === 'draftSetup' && <DraftSetup initial={g.draftConfig} onBack={() => go({ screen: 'mode' })} onStart={startNewDraft} />}
+      {g.screen === 'draftSetup' && <DraftSetup initial={g.draftConfig} onBack={() => go({ screen: 'home' })} onStart={startNewDraft} />}
 
       {g.screen === 'draft' && g.draft && (
         <DraftBoard state={g.draft} onChange={(s) => go({ draft: s })} onFinish={finishDraft} onBack={() => { if (confirm('Sair do draft? O progresso será perdido.')) go({ screen: 'draftSetup' }); }} />
       )}
 
       {g.screen === 'squad' && g.nationId && (
-        <Squad nationId={g.nationId} initial={g.called} readOnly={!!t} cond={t?.cond} onBack={() => go({ screen: t ? 'cup' : g.mode === 'career' ? 'careerHome' : 'pick' })} onConfirm={(ids) => go({ called: ids, lineup: undefined, screen: 'tactics' })} />
+        <Squad nationId={g.nationId} initial={g.called} readOnly={!!t} cond={t?.cond} onBack={() => go({ screen: t ? 'cup' : g.mode === 'career' ? 'careerHome' : g.mode === 'daily' ? 'dailyIntro' : 'pick' })} onConfirm={(ids) => go({ called: ids, lineup: undefined, screen: 'tactics' })} />
       )}
 
       {g.screen === 'tactics' && g.nationId && (
@@ -306,7 +339,7 @@ function MainApp() {
           cond={t?.cond}
           initial={g.lineup ?? (t ? t.userLineup : undefined)}
           initialFormation={g.draftConfig?.formation}
-          confirmLabel={t ? 'Salvar e voltar à Copa' : g.mode === 'career' ? 'Iniciar a Copa' : 'Escolher o recorte da Copa'}
+          confirmLabel={t ? 'Salvar e voltar à Copa' : g.mode === 'career' || g.mode === 'daily' ? 'Iniciar a Copa' : 'Escolher o recorte da Copa'}
           onBack={() => go({ screen: t ? 'cup' : g.mode === 'career' ? 'careerHome' : g.mode === 'draft' ? 'draft' : 'squad' })}
           onConfirm={(lineup) => {
             if (t) setG((prev) => ({ ...prev, lineup, tournament: { ...t, userLineup: lineup }, screen: 'cup' }));
@@ -316,6 +349,10 @@ function MainApp() {
               const nation = nationsById.get(career.nationId as string);
               setG((prev) => ({ ...prev, career }));
               void startCup(lineup, nation ? careerCut(world, nation) : 'all');
+            } else if (g.mode === 'daily' && g.dailyDate) {
+              // desafio do dia: a seed vem da data, então todos jogam a mesma Copa
+              go({ lineup });
+              void startCup(lineup, 'all', dailySeed(g.dailyDate));
             } else go({ lineup, screen: 'cupSetup' });
           }}
         />
@@ -355,6 +392,7 @@ function MainApp() {
           extra={
             <>
               {g.scored && <ScoreCard summary={g.scored.summary} achievements={g.scored.achievements} />}
+              {g.scored?.daily && <DailyShare record={g.scored.daily} />}
               {g.mode === 'career' && g.career && g.careerResult ? (
             <CareerAfterCup
               career={g.career}
@@ -371,7 +409,7 @@ function MainApp() {
               ) : null}
             </>
           }
-          onNewCup={() => (g.mode === 'draft' ? setG({ ...FRESH, mode: 'draft', draftConfig: g.draftConfig, screen: 'draftSetup' }) : setG({ ...FRESH, mode: 'ready', screen: 'pick', nationId: g.nationId }))}
+          onNewCup={() => (g.mode === 'draft' ? setG({ ...FRESH, mode: 'draft', draftConfig: g.draftConfig, screen: 'draftSetup' }) : g.mode === 'daily' ? setG({ ...FRESH, mode: 'daily', dailyDate: g.dailyDate, screen: 'dailyIntro' }) : setG({ ...FRESH, mode: 'ready', screen: 'pick', nationId: g.nationId }))}
         />
       )}
     </div>

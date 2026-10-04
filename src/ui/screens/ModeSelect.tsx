@@ -1,27 +1,32 @@
-export function ModeSelect({ onCareer, hasCareer, onReady, onDraft, onBack }: { onCareer: () => void; hasCareer: boolean; onReady: () => void; onDraft: () => void; onBack: () => void }) {
+export interface ModeHandlers {
+  onCareer: () => void;
+  hasCareer: boolean;
+  onDaily: () => void;
+  dailyDone: boolean;
+  onDraft: () => void;
+  onReady: () => void;
+}
+
+/** Os quatro modos, na ordem da tela inicial: Carreira, Desafio do dia, Draft, Seleção pronta. */
+export function ModeCards({ onCareer, hasCareer, onDaily, dailyDone, onDraft, onReady }: ModeHandlers) {
   return (
-    <div>
-      <div className="row between" style={{ marginBottom: 14 }}>
-        <div>
-          <h2>Como você quer montar o time?</h2>
-          <div className="muted">Os dois modos jogam a mesma Copa do Mundo.</div>
-        </div>
-        <button className="ghost" onClick={onBack}>Voltar</button>
-      </div>
-      <div className="choices modes">
-        <button onClick={onCareer}>
-          <b>Carreira de técnico{hasCareer ? ' (em andamento)' : ''}</b>
-          <span>Comece com uma de 3 seleções fracas sorteadas e construa reputação Copa após Copa. Campanhas acima do esperado para a força do time sobem a reputação; fracassos derrubam. Depois de cada Copa, chegam convites de seleções à altura do seu nome.</span>
-        </button>
-        <button onClick={onReady}>
-          <b>Seleção pronta</b>
-          <span>Escolha uma seleção-era (por exemplo, "Brasil anos 70"), com busca por década, continente e força, e convoque 23 do elenco dela.</span>
-        </button>
-        <button onClick={onDraft}>
-          <b>Monte a sua (draft por sorteio)</b>
-          <span>Defina nome, cores e formação. A cada rodada o jogo sorteia uma seleção-era, com a mesma chance para todas, e você escolhe 1 jogador dela. São 3 trocas de sorteio. Seleções fracas aparecem muito: é preciso decidir se vale esperar um craque.</span>
-        </button>
-      </div>
+    <div className="choices modes">
+      <button onClick={onCareer}>
+        <b>Carreira de técnico{hasCareer ? ' (em andamento)' : ''}</b>
+        <span>Comece com uma de 3 seleções fracas sorteadas e construa reputação Copa após Copa. Campanhas acima do esperado para a força do time sobem a reputação; fracassos derrubam. Depois de cada Copa, chegam convites de seleções à altura do seu nome.</span>
+      </button>
+      <button onClick={onDaily}>
+        <b>Desafio do dia{dailyDone ? ' (já jogado hoje)' : ''}</b>
+        <span>A data define a seed: todo mundo recebe a mesma seleção fraca e a mesma Copa. No fim, um resultado em texto, no estilo Wordle, para compartilhar. Sem rede e sem dados pessoais.</span>
+      </button>
+      <button onClick={onDraft}>
+        <b>Monte a sua (draft por sorteio)</b>
+        <span>Defina nome, cores e formação. A cada rodada o jogo sorteia uma seleção-era, com a mesma chance para todas, e você escolhe 1 jogador dela. São 3 trocas de sorteio. Seleções fracas aparecem muito: é preciso decidir se vale esperar um craque.</span>
+      </button>
+      <button onClick={onReady}>
+        <b>Seleção pronta</b>
+        <span>Escolha uma seleção-era (por exemplo, "Brasil anos 70" ou "Hungria 1954–57"), com busca por década, continente e força, e convoque 23 do elenco dela.</span>
+      </button>
     </div>
   );
 }

@@ -222,3 +222,5 @@ tr.taken td { opacity: .35; text-decoration: line-through; }
 .ach { display: flex; gap: 10px; align-items: center; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; opacity: .55; }
 .ach.on { opacity: 1; border-color: var(--accent); background: rgba(242,199,68,.08); }
 .ach-ic { font-size: 1.4rem; }
+
+pre.share { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; margin: 8px 0; user-select: all; }
