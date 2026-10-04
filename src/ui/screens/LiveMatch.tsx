@@ -7,7 +7,7 @@ import { NationName } from '../components/common';
 import { engine } from '../engineClient';
 import { Choreo, type Fx, type PlayerBrief } from '../pitch/choreo';
 import { PitchView, type DotMeta } from '../pitch/PitchView';
-import { ChangesPanel, HalftimeScreen, QuickSub, ShoutBar, TeamPanel } from './LiveParts';
+import { ChangesPanel, DecisionModal, HalftimeScreen, QuickSub, ShoutBar, TeamPanel } from './LiveParts';
 import { nationsById, playerById } from '../world';
 
 export interface LiveStart extends MatchDelta {
@@ -21,10 +21,10 @@ export interface LiveStart extends MatchDelta {
 const SEC_PER_MIN = 1.6;
 type Speed = 1 | 4;
 
-const FEED_TYPES = new Set<MatchEvent['type']>(['kickoff', 'goal', 'save', 'hard-save', 'miss', 'big-miss', 'post', 'offside', 'foul', 'yellow', 'red', 'sub', 'tactic', 'halftime', 'fulltime', 'penalty-shootout']);
+const FEED_TYPES = new Set<MatchEvent['type']>(['kickoff', 'goal', 'save', 'hard-save', 'miss', 'big-miss', 'post', 'offside', 'injury', 'foul', 'yellow', 'red', 'sub', 'tactic', 'halftime', 'fulltime', 'penalty-shootout']);
 const DRAMATIC = new Set<MatchEvent['type']>(['goal', 'hard-save', 'big-miss', 'post']);
 const SHOT_TYPES = new Set<MatchEvent['type']>(['goal', 'save', 'hard-save', 'miss', 'big-miss', 'post']);
-const ICON: Partial<Record<MatchEvent['type'], string>> = { goal: '⚽', save: '🧤', 'hard-save': '🧤', miss: '💨', 'big-miss': '😱', post: '🥅', offside: '🚩', foul: '🦶', yellow: '🟨', red: '🟥', sub: '🔁', halftime: '⏸', fulltime: '🏁', 'penalty-shootout': '🎯', tactic: '📋', kickoff: '▶' };
+const ICON: Partial<Record<MatchEvent['type'], string>> = { goal: '⚽', save: '🧤', 'hard-save': '🧤', miss: '💨', 'big-miss': '😱', post: '🥅', offside: '🚩', injury: '🚑', foul: '🦶', yellow: '🟨', red: '🟥', sub: '🔁', halftime: '⏸', fulltime: '🏁', 'penalty-shootout': '🎯', tactic: '📋', kickoff: '▶' };
 
 const lastName = (name: string) => name.split(' ').slice(-1)[0] ?? name;
 
@@ -72,6 +72,8 @@ interface Model {
   warp: number;
   /** O motor parou no intervalo: não busca mais jogo até o usuário voltar do vestiário. */
   holdFetch: boolean;
+  /** Decisão do motor já exibida na tela (o jogo está parado esperando a resposta). */
+  decisionShown: boolean;
 }
 
 export function LiveMatch({ start, speed0, onFinished, onBack }: { start: LiveStart; speed0: Speed; onFinished: (report: MatchReport, record: MatchRecord) => void; onBack: () => void }) {
@@ -112,6 +114,7 @@ export function LiveMatch({ start, speed0, onFinished, onBack }: { start: LiveSt
     replayAt: 0,
     warp: 1,
     holdFetch: false,
+    decisionShown: false,
   });
   const [, bump] = useState(0);
   const [panel, setPanel] = useState(false);
@@ -210,7 +213,7 @@ export function LiveMatch({ start, speed0, onFinished, onBack }: { start: LiveSt
     if (d.state.finished) m.simFinished = true;
     if (d.report) m.report = d.report;
     if (d.record) m.record = d.record;
-    if (d.events.some((e) => e.type === 'halftime')) m.holdFetch = true;
+    if (d.events.some((e) => e.type === 'halftime') || d.state.decision) m.holdFetch = true;
     syncLineups();
   };
 
@@ -333,6 +336,11 @@ export function LiveMatch({ start, speed0, onFinished, onBack }: { start: LiveSt
             if (!m.replay) m.paused = false;
           }
         }
+        // o motor parou numa decisão: mostra o modal quando a jogada em curso terminar
+        if (m.state.decision && !m.decisionShown && m.buffer.length === 0 && !choreo.busy && !m.fetching) {
+          m.decisionShown = true;
+          m.paused = true;
+        }
         if (finishing && !m.shownEnd) m.shownEnd = true;
         drawNow();
       }
@@ -382,6 +390,16 @@ export function LiveMatch({ start, speed0, onFinished, onBack }: { start: LiveSt
 
   /** Envia um comando com o jogo parado (troca, tática, conversa): alinha a tela com o motor antes. */
   const send = (cmd: MatchCommand) => void call(() => engine.call('matchCommand', { cmd }));
+
+  const answerDecision = (cmd: MatchCommand) =>
+    void call(() => engine.call('matchCommand', { cmd })).then(() => {
+      m.decisionShown = false;
+      if (!m.state.decision && !m.halftimeBanner) {
+        m.holdFetch = false;
+        m.paused = false;
+      }
+      render();
+    });
 
   const resumeSecondHalf = () => {
     m.halftimeBanner = false;
@@ -502,6 +520,9 @@ export function LiveMatch({ start, speed0, onFinished, onBack }: { start: LiveSt
         </div>
         </div>
       </div>
+      {m.decisionShown && m.state.decision && m.state.decision.side === userSide && (
+        <DecisionModal state={m.state} userSide={userSide} decision={m.state.decision} busy={busy} send={answerDecision} />
+      )}
       {quickOut && (
         <QuickSub
           state={m.state}

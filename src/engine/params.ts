@@ -49,6 +49,8 @@ export interface Params {
     /** Linha baixa deixa a defesa mais compacta contra a construção (linha alta, menos). */
     defLineCompact: number;
   };
+  /** Chance de lesão por jogador por minuto (cresce com o cansaço). */
+  injuryPerMinute: number;
   /** Fadiga por minuto: base + pressão + ritmo + altura da linha. */
   fatigue: { base: number; press: number; tempo: number; line: number };
   /** Peso da condição física na força do jogador (0 = ignora). */
@@ -71,6 +73,7 @@ export const DEFAULT_PARAMS: Params = {
   bigChanceXg: 0.11,
   postShare: 0.07,
   tactics: { attackTempo: 0.3, attackLine: 0.2, pressRecover: 0.3, defLineCompact: 0.18 },
+  injuryPerMinute: 0.00035,
   foulBase: 0.1,
   yellowPerFoul: 0.16,
   redPerFoul: 0.006,

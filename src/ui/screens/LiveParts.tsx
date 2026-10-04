@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { FORMATIONS } from '../../engine/formations';
-import type { LiveState, MatchCommand, Shout, TalkTone } from '../../engine/match';
+import type { Decision, LiveState, MatchCommand, Shout, TalkTone } from '../../engine/match';
 import { SHOUT_MINUTES } from '../../engine/match';
 import { overall } from '../../engine/player';
 import type { Tactics, TeamMatchStats } from '../../engine/types';
@@ -278,6 +278,150 @@ export function HalftimeScreen({ state, userSide, fixtureNations, busy, send, on
         </div>
       </div>
       <ChangesPanel state={state} userSide={userSide} busy={busy} send={send} embedded />
+    </div>
+  );
+}
+
+// ---------- momentos de decisão ----------
+
+const fin = (id: string, cond: number) => (playerById(id)?.attrs.finalizacao ?? 0) * (0.7 + 0.3 * (cond / 100));
+
+export function DecisionModal({ state, userSide, decision, busy, send }: { state: LiveState; userSide: 0 | 1; decision: Decision; busy: boolean; send: Send }) {
+  const side = state.sides[userSide];
+  const answer = (choice: string, order?: string[]) => send({ kind: 'decide', side: userSide, id: decision.id, choice, order });
+
+  if (decision.kind === 'injury') {
+    const pl = playerById(decision.playerId);
+    const cond = side.onPitch.find((p) => p.id === decision.playerId)?.cond ?? 0;
+    const list = suggestions(state, userSide, decision.playerId);
+    return (
+      <div className="modal">
+        <div className="panel modal-box">
+          <h3>🚑 {pl?.name} está lesionado</h3>
+          <p className="muted">Condição {Math.round(cond)}% · {side.subsLeft} trocas restantes. Se ficar em campo, rende bem menos pelo resto do jogo.</p>
+          {side.subsLeft > 0 ? (
+            <table>
+              <tbody>
+                {list.slice(0, 6).map(({ b, pl: r }, i) => (
+                  <tr key={b.id} className="clickable" onClick={() => !busy && answer(b.id)}>
+                    <td><PosPill p={r} /></td>
+                    <td>{r.name}{i === 0 ? ' ★' : ''}</td>
+                    <td className="num"><b>{Math.round(overall(r))}</b></td>
+                    <td className="num">{Math.round(b.cond)}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="bad">Sem trocas restantes: ele precisa ficar em campo.</p>
+          )}
+          <div className="row" style={{ marginTop: 10 }}>
+            <button disabled={busy} onClick={() => answer('keep')}>Manter em campo</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (decision.kind === 'desperate') {
+    return (
+      <div className="modal">
+        <div className="panel modal-box">
+          <h3>⏱ Perdendo aos {state.minute}'</h3>
+          <p className="muted">O que o treinador faz?</p>
+          <div className="choices">
+            <button disabled={busy} onClick={() => answer('allin')}>
+              <b>Tudo ou nada</b>
+              <span>+10% no ataque, -10% na defesa, pressão e ritmo no máximo. Mais chances, mais espaço para o contra-ataque.</span>
+            </button>
+            <button disabled={busy} onClick={() => answer('hold')}>
+              <b>Segurar</b>
+              <span>Mantém a organização: +5% na defesa, -3% no ataque. Evita levar mais gols, mas dificulta a virada.</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (decision.kind === 'penalty') {
+    const takers = side.onPitch
+      .filter((p) => p.slot !== 'GK')
+      .map((p) => ({ p, score: fin(p.id, p.cond) }))
+      .sort((a, b) => b.score - a.score);
+    return (
+      <div className="modal">
+        <div className="panel modal-box">
+          <h3>⚽ Pênalti a favor!</h3>
+          <p className="muted">Escolha o batedor. Finalização e condição física pesam na cobrança.</p>
+          <table>
+            <tbody>
+              {takers.slice(0, 8).map(({ p }, i) => {
+                const pl = playerById(p.id)!;
+                return (
+                  <tr key={p.id} className="clickable" onClick={() => !busy && answer(p.id)}>
+                    <td><PosPill p={{ position: pl.position, slot: p.slot }} /></td>
+                    <td>{pl.name}{i === 0 ? ' ★' : ''}</td>
+                    <td className="num">FIN {pl.attrs.finalizacao}</td>
+                    <td className="num">{Math.round(p.cond)}%</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
+  return <ShootoutOrder state={state} userSide={userSide} busy={busy} onConfirm={(order) => answer('', order)} />;
+}
+
+function ShootoutOrder({ state, userSide, busy, onConfirm }: { state: LiveState; userSide: 0 | 1; busy: boolean; onConfirm: (order: string[]) => void }) {
+  const side = state.sides[userSide];
+  const [order, setOrder] = useState<string[]>(() =>
+    side.onPitch
+      .filter((p) => p.slot !== 'GK')
+      .sort((a, b) => fin(b.id, b.cond) - fin(a.id, a.cond))
+      .map((p) => p.id),
+  );
+  const move = (i: number, d: -1 | 1) =>
+    setOrder((prev) => {
+      const j = i + d;
+      if (j < 0 || j >= prev.length) return prev;
+      const next = [...prev];
+      [next[i], next[j]] = [next[j] as string, next[i] as string];
+      return next;
+    });
+  return (
+    <div className="modal">
+      <div className="panel modal-box">
+        <h3>🎯 Disputa de pênaltis: ordem dos batedores</h3>
+        <p className="muted">Os 5 primeiros cobram na ordem; depois, os demais nas cobranças alternadas.</p>
+        <table>
+          <tbody>
+            {order.map((id, i) => {
+              const pl = playerById(id)!;
+              const cond = side.onPitch.find((p) => p.id === id)?.cond ?? 0;
+              return (
+                <tr key={id} style={{ opacity: i < 5 ? 1 : 0.6 }}>
+                  <td className="num">{i + 1}º</td>
+                  <td>{pl.name}</td>
+                  <td className="num">FIN {pl.attrs.finalizacao}</td>
+                  <td className="num">{Math.round(cond)}%</td>
+                  <td>
+                    <button className="ghost" onClick={() => move(i, -1)} disabled={i === 0}>▲</button>
+                    <button className="ghost" onClick={() => move(i, 1)} disabled={i === order.length - 1}>▼</button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        <div className="row" style={{ marginTop: 10 }}>
+          <button className="primary" disabled={busy} onClick={() => onConfirm(order)}>Confirmar ordem</button>
+        </div>
+      </div>
     </div>
   );
 }

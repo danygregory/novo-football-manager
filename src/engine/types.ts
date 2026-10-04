@@ -119,6 +119,7 @@ export type EventType =
   | 'yellow'
   | 'red'
   | 'sub'
+  | 'injury'
   | 'tactic'
   | 'halftime'
   | 'fulltime'

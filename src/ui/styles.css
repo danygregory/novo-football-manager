@@ -162,3 +162,7 @@ tr.me td { color: var(--accent); font-weight: 650; }
 .modal-box { width: min(480px, 92vw); }
 .halftime { margin-top: 12px; border-color: var(--accent); }
 @media (prefers-reduced-motion: reduce) { .blink td { animation: none; background: rgba(239,106,91,.2); } }
+
+.choices { display: grid; gap: 10px; }
+.choices button { text-align: left; display: grid; gap: 4px; padding: .8em 1em; }
+.choices button span { color: var(--muted); font-size: .88rem; }

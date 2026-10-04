@@ -78,6 +78,10 @@ export function narrateOffside(c: NarrationCtx): string {
   return variant([`Impedimento de ${c.player} (${c.team}). Bandeira levantada.`, `${c.player} estava adiantado: lance anulado.`], c.minute, `of${c.player}`);
 }
 
+export function narrateInjury(c: NarrationCtx): string {
+  return variant([`${c.player} cai e leva a mão à coxa: parece lesão (${c.team}).`, `${c.player} sente e pede atendimento (${c.team}).`], c.minute, `in${c.player}`);
+}
+
 export function narrateFoul(c: NarrationCtx): string {
   return `Falta de ${c.player} em ${c.other}.`;
 }
