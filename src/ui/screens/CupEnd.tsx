@@ -23,7 +23,7 @@ export function CupEnd({ t, onNewCup, onHome }: { t: Tournament; onNewCup: () =>
       <div className="trophy">🏆</div>
       <h1>{iWon ? 'Campeão do mundo!' : 'Fim da Copa'}</h1>
       <h2><NationName nation={champion} /></h2>
-      {runnerUp && <div className="muted">Vice-campeã: {runnerUp.country} · anos {String(runnerUp.decade).slice(2)}</div>}
+      {runnerUp && <div className="muted">Vice-campeã: {runnerUp.custom ? runnerUp.country : `${runnerUp.country} · anos ${String(runnerUp.decade).slice(2)}`}</div>}
       <div className="awards">
         <div className="award"><div className="k">Artilheiro</div><div className="v">{scorer?.name ?? '-'}</div><div className="muted">{scorer ? `${nationsById.get(scorer.nationId)!.country} · ${a.topScorer!.goals} gols` : ''}</div></div>
         <div className="award"><div className="k">Melhor jogador</div><div className="v">{best?.name ?? '-'}</div><div className="muted">{best ? `${nationsById.get(best.nationId)!.country} · nota média ${a.bestPlayer!.avg.toFixed(2)} em ${a.bestPlayer!.apps} jogos` : ''}</div></div>

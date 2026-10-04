@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { autoSquad23 } from '../../engine/lineup';
 import type { Player, Position } from '../../engine/types';
 import { ATTR_LABEL, Bar, NationName, PosPill, ovr } from '../components/common';
+import { squadOf } from '../../data/squads';
 import { nationsById } from '../world';
 
 const FILTERS: [Position | 'ALL', string][] = [['ALL', 'Todos'], ['GK', 'Goleiros'], ['DEF', 'Defensores'], ['MID', 'Meias'], ['FWD', 'Atacantes']];
@@ -18,14 +19,14 @@ export function Squad({
   cond?: Record<string, number>;
 }) {
   const nation = nationsById.get(nationId)!;
-  const [called, setCalled] = useState<Set<string>>(() => new Set(initial.length ? initial : autoSquad23(nation.squad).map((p) => p.id)));
+  const [called, setCalled] = useState<Set<string>>(() => new Set(initial.length ? initial : autoSquad23(squadOf(nation)).map((p) => p.id)));
   const [filter, setFilter] = useState<Position | 'ALL'>('ALL');
 
   const rows = useMemo(
-    () => nation.squad.filter((p) => (filter === 'ALL' || p.position === filter) && (!readOnly || called.has(p.id))),
+    () => squadOf(nation).filter((p) => (filter === 'ALL' || p.position === filter) && (!readOnly || called.has(p.id))),
     [nation, filter, readOnly, called],
   );
-  const count = (pos: Position) => nation.squad.filter((p) => called.has(p.id) && p.position === pos).length;
+  const count = (pos: Position) => squadOf(nation).filter((p) => called.has(p.id) && p.position === pos).length;
   const gks = count('GK');
   const valid = called.size === 23 && gks >= 2;
 
@@ -44,12 +45,12 @@ export function Squad({
         <div>
           <h2>{readOnly ? 'Elenco' : 'Convocação'} · <NationName nation={nation} /></h2>
           <div className="muted">
-            {readOnly ? 'Seus 23 convocados.' : `Escolha 23 de ${nation.squad.length}.`} Goleiros {gks} · Defensores {count('DEF')} · Meias {count('MID')} · Atacantes {count('FWD')}
+            {readOnly ? 'Seus 23 convocados.' : `Escolha 23 de ${squadOf(nation).length}.`} Goleiros {gks} · Defensores {count('DEF')} · Meias {count('MID')} · Atacantes {count('FWD')}
           </div>
         </div>
         <div className="row">
           <span className={`chip ${valid ? 'accent' : ''}`}>{called.size}/23</span>
-          {!readOnly && <button onClick={() => setCalled(new Set(autoSquad23(nation.squad).map((p) => p.id)))}>Convocação automática</button>}
+          {!readOnly && <button onClick={() => setCalled(new Set(autoSquad23(squadOf(nation)).map((p) => p.id)))}>Convocação automática</button>}
           <button className={readOnly ? 'primary' : 'ghost'} onClick={onBack}>Voltar</button>
           {!readOnly && <button className="primary" disabled={!valid} onClick={() => onConfirm([...called])} title={valid ? '' : 'Convoque exatamente 23 jogadores, com ao menos 2 goleiros'}>
             Confirmar

@@ -11,7 +11,7 @@ export type Zone = 'DEF' | 'MID' | 'ATT' | 'BOX';
 
 export type Continent = 'EU' | 'SA' | 'AF' | 'AS' | 'NA' | 'OC';
 
-export type Decade = 1950 | 1960 | 1970 | 1980 | 1990 | 2000 | 2010 | 2020;
+export type Decade = 1930 | 1940 | 1950 | 1960 | 1970 | 1980 | 1990 | 2000 | 2010 | 2020;
 
 export type PlayStyle =
   | 'retranca'
@@ -61,7 +61,15 @@ export interface NationEra {
   goalsFor: number;
   goalsAgainst: number;
   colors: { primary: string; secondary: string };
-  squad: Player[];
+  /** Código do país (prefixo do id). */
+  code: string;
+  /** Cultura dos nomes gerados para os jogadores. */
+  culture: string;
+  /** Jogos da seleção na década (amostra do Elo). */
+  matches: number;
+  /** Time montado no draft: elenco guardado aqui (as seleções históricas geram o elenco sob demanda). */
+  custom?: boolean;
+  customSquad?: Player[];
 }
 
 export interface DecadeStats {

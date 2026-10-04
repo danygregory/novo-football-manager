@@ -3,12 +3,13 @@ import worldJson from '../../data/world.json';
 import { autoLineup, autoSquad23, tacticsForStyle } from './lineup';
 import { MatchSimulator, replayMatch, SHOUT_MINUTES, type TeamSetup } from './match';
 import type { World } from './types';
+import { squadOf } from '../data/squads';
 
 const world = worldJson as unknown as World;
 const get = (id: string) => world.nations.find((n) => n.id === id)!;
 function setup(id: string, ai: boolean): TeamSetup {
   const n = get(id);
-  const squad = autoSquad23(n.squad);
+  const squad = autoSquad23(squadOf(n));
   return { nationId: id, name: n.country, squad, lineup: autoLineup(id, squad, tacticsForStyle(n.playStyle)), ai };
 }
 const mk = (seed: number) => new MatchSimulator([setup('BRA-1970', false), setup('GER-1980', true)], { seed });
@@ -47,7 +48,7 @@ describe('gritos táticos', () => {
   it('"bola longa" gera mais lances de ligação direta (mais impedimentos) que "toque curto"', () => {
     const offsides = (shout: 'long' | 'short') => {
       let t = 0;
-      for (let seed = 0; seed < 150; seed++) {
+      for (let seed = 0; seed < 500; seed++) {
         const sim = mk(seed);
         sim.playThrough(10);
         sim.execute({ kind: 'shout', side: 0, shout });

@@ -93,7 +93,7 @@ export function teamQuality(elo: number): number {
 }
 
 function pickStyle(slot: Slot, decade: Decade, rng: Rng): StyleDef {
-  const options = STYLES.filter((s) => s.slots.includes(slot) && (s.from ?? 1950) <= decade && (s.to ?? 2020) >= decade);
+  const options = STYLES.filter((s) => s.slots.includes(slot) && (s.from ?? 1930) <= decade && (s.to ?? 2020) >= decade);
   return rng.weighted(options, options.map((o) => o.weight ?? 1));
 }
 

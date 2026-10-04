@@ -1,8 +1,9 @@
 import { RECOVERY_PER_DAY } from './fatigue';
 import { autoLineup, autoSquad23, tacticsForStyle } from './lineup';
 import { replayMatch, simulateMatch, type LoggedCommand, type TeamSetup } from './match';
+import { squadOf } from '../data/squads';
 import { Rng, hashSeed } from './prng';
-import type { Lineup, MatchReport, NationEra, Player, World } from './types';
+import type { Decade, Lineup, MatchReport, NationEra, Player, World } from './types';
 
 /** Copa do Mundo: 8 grupos de 4, os 2 primeiros avançam; oitavas, quartas, semifinais e final. */
 export type Stage = 'G1' | 'G2' | 'G3' | 'R16' | 'QF' | 'SF' | 'F' | 'DONE';
@@ -55,6 +56,8 @@ export interface MatchRecord {
   teams: [string, string];
   userSide: 0 | 1;
   lineups: [Lineup, Lineup];
+  /** Time do draft, quando o usuário joga com um (necessário para reproduzir a partida). */
+  custom?: NationEra;
   /** Condição de cada convocado dos dois times no início do jogo. */
   cond: Record<string, number>;
   commands: LoggedCommand[];
@@ -63,6 +66,11 @@ export interface MatchRecord {
 export interface Tournament {
   seed: number;
   userNationId: string;
+  /** Recorte dos adversários e as 32 seleções que disputam a Copa. */
+  cut: Cut;
+  participants: string[];
+  /** Time montado no draft (a seleção do usuário, quando não é uma seleção-era pronta). */
+  custom?: NationEra;
   /** Convocados (ids) de cada seleção. */
   squads: Record<string, string[]>;
   userLineup: Lineup;
@@ -95,16 +103,35 @@ const DAYS_BETWEEN_ROUNDS = 3;
 
 // ---------- consultas ----------
 
+const mapCache = new WeakMap<World, Map<string, NationEra>>();
+
+function nationMap(world: World): Map<string, NationEra> {
+  let m = mapCache.get(world);
+  if (!m) {
+    m = new Map(world.nations.map((n) => [n.id, n]));
+    mapCache.set(world, m);
+  }
+  return m;
+}
+
 export function nationOf(world: World, id: string): NationEra {
-  const n = world.nations.find((x) => x.id === id);
+  const n = nationMap(world).get(id);
   if (!n) throw new Error(`Seleção desconhecida: ${id}`);
   return n;
 }
 
-export function playerIndex(world: World): Map<string, Player & { nationId: string }> {
-  const out = new Map<string, Player & { nationId: string }>();
-  for (const n of world.nations) for (const p of n.squad) out.set(p.id, { ...p, nationId: n.id });
-  return out;
+/** O mundo com o time do draft (se houver) incluído, para as funções que procuram seleções pelo id. */
+export function withCustom(world: World, custom?: NationEra): World {
+  if (!custom || world.nations.some((n) => n.id === custom.id)) return world;
+  return { ...world, nations: [...world.nations, custom] };
+}
+
+/** Procura um jogador pelo id (o prefixo é o id da seleção-era); gera o elenco só dessa seleção. */
+export function findPlayer(world: World, id: string): (Player & { nationId: string }) | undefined {
+  const nationId = id.slice(0, id.lastIndexOf('-'));
+  const n = nationMap(world).get(nationId);
+  const p = n ? squadOf(n).find((x) => x.id === id) : undefined;
+  return p && n ? { ...p, nationId: n.id } : undefined;
 }
 
 export function winnerOf(r: MatchResult): string {
@@ -119,7 +146,8 @@ const GROUP_PAIRINGS: [number, number][][] = [
   [[3, 0], [1, 2]],
 ];
 
-export function standings(t: Tournament, groupIndex: number, world: World): Standing[] {
+export function standings(t: Tournament, groupIndex: number, worldIn: World): Standing[] {
+  const world = withCustom(worldIn, t.custom);
   const ids = t.groups[groupIndex] as string[];
   const table = new Map<string, Standing>(ids.map((id) => [id, { id, played: 0, won: 0, drawn: 0, lost: 0, gf: 0, ga: 0, gd: 0, points: 0 }]));
   for (const r of t.results) {
@@ -145,7 +173,8 @@ function stageResults(t: Tournament, stage: Stage): MatchResult[] {
 }
 
 /** Jogos da etapa atual (vazio se a Copa acabou). */
-export function currentFixtures(t: Tournament, world: World): Fixture[] {
+export function currentFixtures(t: Tournament, worldIn: World): Fixture[] {
+  const world = worldIn;
   const st = t.stage;
   if (st === 'DONE') return [];
   if (st === 'G1' || st === 'G2' || st === 'G3') {
@@ -192,15 +221,17 @@ export function fixtureSeed(t: Tournament, f: Fixture): number {
 }
 
 /** Jogadores de uma seleção, com a condição atual do torneio. */
-export function squadWithCondition(world: World, t: Tournament, nationId: string): Player[] {
+export function squadWithCondition(worldIn: World, t: Tournament, nationId: string): Player[] {
+  const world = withCustom(worldIn, t.custom);
   const ids = new Set(t.squads[nationId] as string[]);
-  return nationOf(world, nationId)
-    .squad.filter((p) => ids.has(p.id))
+  return squadOf(nationOf(world, nationId))
+    .filter((p) => ids.has(p.id))
     .map((p) => ({ ...p, condition: t.cond[p.id] ?? p.condition }));
 }
 
 /** Time pronto para jogar: o do usuário usa a escalação salva; os demais, a IA. */
-export function buildSetup(world: World, t: Tournament, nationId: string, forUser: boolean): TeamSetup {
+export function buildSetup(worldIn: World, t: Tournament, nationId: string, forUser: boolean): TeamSetup {
+  const world = withCustom(worldIn, t.custom);
   const nation = nationOf(world, nationId);
   const squad = squadWithCondition(world, t, nationId);
   const goalRate = world.decades.find((d) => d.decade === nation.decade)?.goalsPerMatchCompetitive;
@@ -212,10 +243,38 @@ export function buildSetup(world: World, t: Tournament, nationId: string, forUse
 
 // ---------- criação ----------
 
-export function createTournament(world: World, userNationId: string, userSquad: string[], userLineup: Lineup, seed: number): Tournament {
+/** Recorte da Copa: todas as eras ou uma década. */
+export type Cut = 'all' | Decade;
+
+/** Sorteia os 31 adversários do recorte (todas com a mesma chance); a seleção do usuário entra à parte. */
+export function drawOpponents(world: World, userNationId: string, seed: number, cut: Cut): string[] {
+  const pool = world.nations.filter((n) => n.id !== userNationId && (cut === 'all' || n.decade === cut));
+  if (pool.length < 31) throw new Error(`O recorte tem só ${pool.length} seleções-era; são necessárias 31 adversárias.`);
+  return new Rng(hashSeed(`opp:${seed}`)).shuffle(pool).slice(0, 31).map((n) => n.id);
+}
+
+/** Quantas seleções-era cada recorte tem (para desabilitar décadas sem seleções suficientes). */
+export function cutSizes(world: World): Map<Cut, number> {
+  const out = new Map<Cut, number>([['all', world.nations.length]]);
+  for (const n of world.nations) out.set(n.decade, (out.get(n.decade) ?? 0) + 1);
+  return out;
+}
+
+export function createTournament(
+  worldIn: World,
+  userNationId: string,
+  userSquad: string[],
+  userLineup: Lineup,
+  seed: number,
+  opts: { cut?: Cut; custom?: NationEra } = {},
+): Tournament {
+  const custom = opts.custom;
+  const cut = opts.cut ?? 'all';
+  const world = withCustom(worldIn, custom);
   const rng = new Rng(hashSeed(`cup:${seed}`));
-  // potes por Elo: um time de cada pote em cada grupo; o do usuário entra normalmente no sorteio.
-  const sorted = [...world.nations].sort((a, b) => b.elo - a.elo || a.id.localeCompare(b.id));
+  const participants = [userNationId, ...drawOpponents(worldIn, userNationId, seed, cut)];
+  // 4 potes por força (como no sorteio real): um time de cada pote em cada grupo
+  const sorted = participants.map((id) => nationOf(world, id)).sort((a, b) => b.elo - a.elo || a.id.localeCompare(b.id));
   const pots = [0, 1, 2, 3].map((p) => sorted.slice(p * 8, p * 8 + 8).map((n) => n.id));
   const shuffled = pots.map((pot) => rng.shuffle(pot));
   const groups = Array.from({ length: 8 }, (_, g) => shuffled.map((pot) => pot[g] as string));
@@ -223,14 +282,18 @@ export function createTournament(world: World, userNationId: string, userSquad: 
 
   const squads: Record<string, string[]> = {};
   const cond: Record<string, number> = {};
-  for (const n of world.nations) {
-    const ids = n.id === userNationId ? userSquad : autoLineupSquadIds(n);
-    squads[n.id] = ids;
-    for (const p of n.squad) if (ids.includes(p.id)) cond[p.id] = p.condition;
+  for (const id of participants) {
+    const n = nationOf(world, id);
+    const ids = id === userNationId ? userSquad : autoSquad23(squadOf(n)).map((p) => p.id);
+    squads[id] = ids;
+    for (const p of squadOf(n)) if (ids.includes(p.id)) cond[p.id] = p.condition;
   }
   return {
     seed,
     userNationId,
+    cut,
+    participants,
+    custom,
     squads,
     userLineup,
     cond,
@@ -240,10 +303,6 @@ export function createTournament(world: World, userNationId: string, userSquad: 
     userMatches: [],
     stats: { goals: {}, ratingSum: {}, apps: {} },
   };
-}
-
-function autoLineupSquadIds(n: NationEra): string[] {
-  return autoSquad23(n.squad).map((p) => p.id);
 }
 
 // ---------- rodada ----------
@@ -267,18 +326,20 @@ export function startRecord(t: Tournament, fixture: Fixture, setups: [TeamSetup,
     teams: [fixture.home, fixture.away],
     userSide: fixture.home === t.userNationId ? 0 : 1,
     lineups: [setups[0].lineup, setups[1].lineup],
+    custom: t.custom,
     cond,
     commands: [],
   };
 }
 
 /** Reconstrói os dois times como estavam no apito inicial. */
-export function setupsFromRecord(world: World, rec: MatchRecord): [TeamSetup, TeamSetup] {
+export function setupsFromRecord(worldIn: World, rec: MatchRecord): [TeamSetup, TeamSetup] {
+  const world = withCustom(worldIn, rec.custom);
   const make = (i: 0 | 1): TeamSetup => {
     const nation = nationOf(world, rec.teams[i]);
     const lineup = rec.lineups[i];
     const ids = new Set([...lineup.starters, ...lineup.bench]);
-    const squad = nation.squad.filter((p) => ids.has(p.id)).map((p) => ({ ...p, condition: rec.cond[p.id] ?? p.condition }));
+    const squad = squadOf(nation).filter((p) => ids.has(p.id)).map((p) => ({ ...p, condition: rec.cond[p.id] ?? p.condition }));
     const goalRate = world.decades.find((d) => d.decade === nation.decade)?.goalsPerMatchCompetitive;
     return { nationId: nation.id, name: nation.country, squad, lineup, ai: i !== rec.userSide, goalRate };
   };

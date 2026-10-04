@@ -17,6 +17,10 @@ import { nationsById, playerById, world } from '../world';
 type Tab = 'groups' | 'bracket' | 'results' | 'scorers';
 
 const nm = (id: string) => nationsById.get(id)!.country;
+const decadeTag = (id: string) => {
+  const n = nationsById.get(id)!;
+  return n.custom ? '★' : String(n.decade).slice(2);
+};
 
 function resultLine(r: MatchResult) {
   const so = r.shootout ? ` (${r.shootout[0]}-${r.shootout[1]} pên.)` : r.extraTime ? ' (pror.)' : '';
@@ -92,7 +96,7 @@ export function Cup({
                   <tbody>
                     {table.map((s, i) => (
                       <tr key={s.id} className={`${s.id === t.userNationId ? 'me' : ''} ${done && i < 2 ? 'qual' : ''}`}>
-                        <td><Kit nation={nationsById.get(s.id)!} />{nm(s.id)} <span className="muted">{String(nationsById.get(s.id)!.decade).slice(2)}</span></td>
+                        <td><Kit nation={nationsById.get(s.id)!} />{nm(s.id)} <span className="muted">{decadeTag(s.id)}</span></td>
                         <td className="num">{s.played}</td>
                         <td className="num">{s.gd > 0 ? `+${s.gd}` : s.gd}</td>
                         <td className="num"><b>{s.points}</b></td>
@@ -149,7 +153,7 @@ function Tie({ home, away, result, mine }: { home: string; away: string; result?
   const w = result ? winnerOf(result) : undefined;
   const line = (id: string, i: 0 | 1) => (
     <div className={w ? (w === id ? 'win' : 'lose') : ''}>
-      <span><Kit nation={nationsById.get(id)!} />{nm(id)} <span className="muted">{String(nationsById.get(id)!.decade).slice(2)}</span></span>
+      <span><Kit nation={nationsById.get(id)!} />{nm(id)} <span className="muted">{decadeTag(id)}</span></span>
       <span>{result ? `${result.score[i]}${result.shootout ? ` (${result.shootout[i]})` : ''}` : ''}</span>
     </div>
   );

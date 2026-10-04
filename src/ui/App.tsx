@@ -1,12 +1,18 @@
 import { useState } from 'react';
-import { STAGE_LABEL, userFixture, type Fixture, type MatchRecord, type Tournament } from '../engine/tournament';
+import { STAGE_LABEL, userFixture, type Cut, type Fixture, type MatchRecord, type Tournament } from '../engine/tournament';
+import { finalizeDraft, startDraft, type DraftConfig, type DraftState } from '../data/draft';
+import { squadOf } from '../data/squads';
 import type { Lineup, MatchReport } from '../engine/types';
 import { Kit } from './components/common';
 import { DEFAULT_SPEED, isSpeed, type Speed } from './speed';
 import { engine } from './engineClient';
 import { Cup } from './screens/Cup';
 import { CupEnd } from './screens/CupEnd';
+import { CupSetup } from './screens/CupSetup';
+import { DraftBoard } from './screens/DraftBoard';
+import { DraftSetup } from './screens/DraftSetup';
 import { Home } from './screens/Home';
+import { ModeSelect } from './screens/ModeSelect';
 import { LiveMatch, type LiveStart } from './screens/LiveMatch';
 import { MatchIntro } from './screens/Match';
 import { PickNation } from './screens/PickNation';
@@ -14,12 +20,17 @@ import { PostMatch } from './screens/PostMatch';
 import { PenaltyDemo } from './screens/PenaltyDemo';
 import { Squad } from './screens/Squad';
 import { Tactics } from './screens/Tactics';
-import { nationsById, world } from './world';
+import { nationLabel, nationsById, registerCustom, world } from './world';
 
-type Screen = 'home' | 'pick' | 'squad' | 'tactics' | 'cup' | 'match' | 'live' | 'post' | 'end';
+type Screen = 'home' | 'mode' | 'pick' | 'squad' | 'draftSetup' | 'draft' | 'tactics' | 'cupSetup' | 'cup' | 'match' | 'live' | 'post' | 'end';
 
 interface Game {
   screen: Screen;
+  /** Seleção pronta ou time montado no draft. */
+  mode?: 'ready' | 'draft';
+  draftConfig?: DraftConfig;
+  draft?: DraftState;
+  cut: Cut;
   nationId?: string;
   called: string[];
   lineup?: Lineup;
@@ -28,7 +39,7 @@ interface Game {
   live?: { start: LiveStart; speed: Speed };
 }
 
-const FRESH: Game = { screen: 'home', called: [] };
+const FRESH: Game = { screen: 'home', called: [], cut: 'all' };
 
 const SETTINGS_KEY = 'novo-fm-settings';
 
@@ -87,12 +98,31 @@ function MainApp() {
     }
   };
 
-  const startCup = (lineup: Lineup) =>
+  const startCup = (lineup: Lineup, cut: Cut) =>
     guarded(async () => {
       const seed = Math.floor(Math.random() * 2 ** 32);
-      const tournament = await engine.call('createTournament', { nationId: g.nationId as string, squad: g.called, lineup, seed });
-      setG((prev) => ({ ...prev, lineup, tournament, screen: 'cup', last: undefined }));
+      const custom = g.mode === 'draft' ? nationsById.get(g.nationId as string) : undefined;
+      const tournament = await engine.call('createTournament', { nationId: g.nationId as string, squad: g.called, lineup, seed, cut, custom: custom?.custom ? custom : undefined });
+      setG((prev) => ({ ...prev, lineup, cut, tournament, screen: 'cup', last: undefined }));
     });
+
+  const resetAll = () => {
+    registerCustom(undefined);
+    setG(FRESH);
+  };
+
+  const startNewDraft = (cfg: Omit<DraftConfig, 'seed'>) => {
+    const config: DraftConfig = { ...cfg, seed: Math.floor(Math.random() * 2 ** 31) };
+    registerCustom(undefined);
+    setG((prev) => ({ ...prev, mode: 'draft', draftConfig: config, draft: startDraft(world, config), nationId: undefined, called: [], lineup: undefined, screen: 'draft' }));
+  };
+
+  const finishDraft = () => {
+    const state = g.draft as DraftState;
+    const team = finalizeDraft(state);
+    registerCustom(team);
+    setG((prev) => ({ ...prev, nationId: team.id, called: squadOf(team).map((p) => p.id), lineup: undefined, screen: 'tactics' }));
+  };
 
   const playInstant = () =>
     guarded(async () => {
@@ -146,7 +176,7 @@ function MainApp() {
           {user && (
             <>
               <Kit nation={user} />
-              <b>{user.country}</b> · anos {String(user.decade).slice(2)}
+              <b>{nationLabel(user)}</b>
               {t && <> · {STAGE_LABEL[t.stage]}</>}
             </>
           )}
@@ -155,16 +185,30 @@ function MainApp() {
           <input type="checkbox" checked={reduced} onChange={toggleReduced} /> Reduzir animações
         </label>
         {g.screen !== 'home' && !busy && (
-          <button className="ghost" onClick={() => { if (!t || confirm('Voltar ao início? A Copa atual será perdida.')) setG(FRESH); }}>Início</button>
+          <button className="ghost" onClick={() => { if (!t || confirm('Voltar ao início? A Copa atual será perdida.')) resetAll(); }}>Início</button>
         )}
       </header>
 
       {error && <div className="error">Erro: {error}</div>}
 
-      {g.screen === 'home' && <Home canLoad={false} onNew={() => go({ screen: 'pick' })} onLoad={() => undefined} />}
+      {g.screen === 'home' && <Home canLoad={false} onNew={() => go({ screen: 'mode' })} onLoad={() => undefined} />}
+
+      {g.screen === 'mode' && (
+        <ModeSelect
+          onBack={() => go({ screen: 'home' })}
+          onReady={() => { registerCustom(undefined); go({ mode: 'ready', screen: 'pick' }); }}
+          onDraft={() => go({ mode: 'draft', screen: 'draftSetup' })}
+        />
+      )}
 
       {g.screen === 'pick' && (
-        <PickNation initial={g.nationId} onBack={() => go({ screen: 'home' })} onPick={(id) => go({ nationId: id, called: id === g.nationId ? g.called : [], lineup: undefined, screen: 'squad' })} />
+        <PickNation initial={g.nationId} onBack={() => go({ screen: 'mode' })} onPick={(id) => go({ nationId: id, called: id === g.nationId ? g.called : [], lineup: undefined, screen: 'squad' })} />
+      )}
+
+      {g.screen === 'draftSetup' && <DraftSetup initial={g.draftConfig} onBack={() => go({ screen: 'mode' })} onStart={startNewDraft} />}
+
+      {g.screen === 'draft' && g.draft && (
+        <DraftBoard state={g.draft} onChange={(s) => go({ draft: s })} onFinish={finishDraft} onBack={() => { if (confirm('Sair do draft? O progresso será perdido.')) go({ screen: 'draftSetup' }); }} />
       )}
 
       {g.screen === 'squad' && g.nationId && (
@@ -177,14 +221,17 @@ function MainApp() {
           called={g.called}
           cond={t?.cond}
           initial={g.lineup ?? (t ? t.userLineup : undefined)}
-          confirmLabel={t ? 'Salvar e voltar à Copa' : 'Iniciar Copa'}
-          onBack={() => go({ screen: t ? 'cup' : 'squad' })}
+          initialFormation={g.draftConfig?.formation}
+          confirmLabel={t ? 'Salvar e voltar à Copa' : 'Escolher o recorte da Copa'}
+          onBack={() => go({ screen: t ? 'cup' : g.mode === 'draft' ? 'draft' : 'squad' })}
           onConfirm={(lineup) => {
             if (t) setG((prev) => ({ ...prev, lineup, tournament: { ...t, userLineup: lineup }, screen: 'cup' }));
-            else void startCup(lineup);
+            else go({ lineup, screen: 'cupSetup' });
           }}
         />
       )}
+
+      {g.screen === 'cupSetup' && g.lineup && <CupSetup initial={g.cut} busy={busy} onBack={() => go({ screen: 'tactics' })} onStart={(cut) => void startCup(g.lineup as Lineup, cut)} />}
 
       {g.screen === 'cup' && t && (
         <Cup
@@ -213,8 +260,8 @@ function MainApp() {
       {g.screen === 'end' && t && (
         <CupEnd
           t={t}
-          onHome={() => setG(FRESH)}
-          onNewCup={() => setG({ screen: 'pick', called: [], nationId: g.nationId })}
+          onHome={resetAll}
+          onNewCup={() => (g.mode === 'draft' ? setG({ ...FRESH, mode: 'draft', draftConfig: g.draftConfig, screen: 'draftSetup' }) : setG({ ...FRESH, mode: 'ready', screen: 'pick', nationId: g.nationId }))}
         />
       )}
     </div>

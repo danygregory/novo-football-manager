@@ -3,13 +3,14 @@ import world from '../../data/world.json';
 import { autoLineup, autoSquad23, validateLineup } from './lineup';
 import { MatchSimulator, simulateMatch, type TeamSetup } from './match';
 import type { NationEra } from './types';
+import { squadOf } from '../data/squads';
 
 const nations = world.nations as unknown as NationEra[];
 const get = (id: string) => nations.find((n) => n.id === id) as NationEra;
 
 function setup(id: string, ai = true): TeamSetup {
   const n = get(id);
-  const squad = autoSquad23(n.squad);
+  const squad = autoSquad23(squadOf(n));
   return { nationId: n.id, name: n.country, squad, lineup: autoLineup(n.id, squad), ai };
 }
 
@@ -19,7 +20,7 @@ const B = () => setup('GER-1980');
 describe('escalação automática', () => {
   it('gera convocação de 23 e escalação válida em todas as formações', () => {
     for (const n of nations) {
-      const squad = autoSquad23(n.squad);
+      const squad = autoSquad23(squadOf(n));
       expect(squad).toHaveLength(23);
       expect(squad.filter((p) => p.position === 'GK').length).toBeGreaterThanOrEqual(3);
       for (const formation of ['4-4-2', '4-3-3', '3-5-2', '5-4-1'] as const) {
@@ -135,7 +136,7 @@ describe('tática, fadiga e substituições', () => {
   it('jogadores cansam durante a partida e o relatório traz a condição final', () => {
     const r = simulateMatch([A(), B()], { seed: 3 });
     const id = r.starters[0][5] as string;
-    const start = get('BRA-1970').squad.find((p) => p.id === id)!.condition;
+    const start = squadOf(get('BRA-1970')).find((p) => p.id === id)!.condition;
     expect(r.finalCondition[id]).toBeLessThan(start);
   });
 

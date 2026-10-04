@@ -107,19 +107,20 @@ import worldJson from '../../../data/world.json';
 import { autoLineup, autoSquad23, tacticsForStyle } from '../../engine/lineup';
 import { MatchSimulator, type TeamSetup } from '../../engine/match';
 import type { NationEra } from '../../engine/types';
+import { squadOf } from '../../data/squads';
 
 const nations = (worldJson as unknown as { nations: NationEra[] }).nations;
 
 function realMatchChoreo(seed: number): { choreo: Choreo; events: MatchEvent[] } {
   const mk = (id: string): TeamSetup => {
     const n = nations.find((x) => x.id === id)!;
-    const squad = autoSquad23(n.squad);
+    const squad = autoSquad23(squadOf(n));
     return { nationId: id, name: n.country, squad, lineup: autoLineup(id, squad, tacticsForStyle(n.playStyle)), ai: true };
   };
   const sim = new MatchSimulator([mk('BRA-1970'), mk('GER-1980')], { seed });
   sim.playThrough(60);
   const st = sim.liveState();
-  const players = new Map(nations.flatMap((n) => n.squad.map((p) => [p.id, p] as const)));
+  const players = new Map(nations.flatMap((n) => squadOf(n).map((p) => [p.id, p] as const)));
   const lineups: PlayerBrief[] = [];
   ([0, 1] as const).forEach((side) =>
     st.sides[side].onPitch.forEach((o) => {

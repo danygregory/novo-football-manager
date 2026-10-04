@@ -8,6 +8,7 @@ import { parseCsv } from './csv';
 import { computeElo, toRawMatches } from './elo';
 import { SQUAD_SIZE, generateSquad } from './squad';
 import { buildWorld } from './world';
+import { squadOf } from './squads';
 
 const csv = readFileSync(resolve(__dirname, '../../data/raw/results.csv'), 'utf8');
 const committed = JSON.parse(readFileSync(resolve(__dirname, '../../data/world.json'), 'utf8')) as World;
@@ -38,36 +39,50 @@ describe('world.json', () => {
     expect(JSON.parse(JSON.stringify(buildWorld(csv)))).toEqual(committed);
   });
 
-  it('tem 32 seleções-era equilibradas por década e continente', () => {
-    expect(committed.nations).toHaveLength(32);
-    expect(new Set(committed.nations.map((n) => n.id)).size).toBe(32);
-    for (const d of [1950, 1960, 1970, 1980, 1990, 2000, 2010, 2020]) {
-      expect(committed.nations.filter((n) => n.decade === d)).toHaveLength(4);
+  it('tem todas as seleções-era com jogos suficientes (pelo menos 150), de 1930 a 2020, sem elencos dentro', () => {
+    expect(committed.nations.length).toBeGreaterThanOrEqual(150);
+    expect(new Set(committed.nations.map((n) => n.id)).size).toBe(committed.nations.length);
+    const decades = new Set(committed.nations.map((n) => n.decade));
+    expect([...decades].sort()).toEqual([1930, 1940, 1950, 1960, 1970, 1980, 1990, 2000, 2010, 2020]);
+    for (const d of decades) expect(committed.nations.filter((n) => n.decade === d).length).toBeGreaterThanOrEqual(32);
+    for (const n of committed.nations) {
+      expect(n.matches).toBeGreaterThanOrEqual(15);
+      expect(n.elo).toBeGreaterThan(1100);
+      expect(n.continent).toBeTruthy();
+      expect(n.playStyle).toBeTruthy();
+      expect('squad' in n).toBe(false);
     }
-    const continents = new Set(committed.nations.map((n) => n.continent));
-    expect(continents.size).toBe(6);
+    expect(new Set(committed.nations.map((n) => n.continent)).size).toBe(6);
+    expect(readFileSync(resolve(__dirname, '../../data/world.json')).length).toBeLessThan(300 * 1024);
+  });
+
+  it('o critério de mínimo de jogos é ajustável: mais exigente gera menos seleções-era', () => {
+    expect(buildWorld(csv, 30).nations.length).toBeLessThan(committed.nations.length);
+    expect(buildWorld(csv, 5).nations.length).toBeGreaterThan(committed.nations.length);
   });
 
   it('traz média de gols por década', () => {
-    expect(committed.decades.map((d) => d.decade)).toEqual([1950, 1960, 1970, 1980, 1990, 2000, 2010, 2020]);
+    expect(committed.decades.map((d) => d.decade)).toEqual([1930, 1940, 1950, 1960, 1970, 1980, 1990, 2000, 2010, 2020]);
     for (const d of committed.decades) expect(d.goalsPerMatchCompetitive).toBeGreaterThan(1.5);
   });
 });
 
 describe('elencos', () => {
-  it('são determinísticos', () => {
-    const n = committed.nations[0]!;
-    const again = generateSquad({ nationId: n.id, culture: 'espanhol', decade: n.decade, elo: n.elo, playStyle: n.playStyle });
-    const first = generateSquad({ nationId: n.id, culture: 'espanhol', decade: n.decade, elo: n.elo, playStyle: n.playStyle });
-    expect(again).toEqual(first);
+  it('são gerados sob demanda e sempre iguais (seed fixa por seleção-era)', () => {
+    for (const n of [committed.nations[0]!, committed.nations[200]!, committed.nations[500]!]) {
+      const fresh = generateSquad({ nationId: n.id, culture: n.culture as never, decade: n.decade, elo: n.elo, playStyle: n.playStyle });
+      expect(squadOf(n)).toEqual(fresh);
+      expect(squadOf(n)).toBe(squadOf(n));
+    }
   });
 
   it('têm 40 jogadores, ids únicos, atributos válidos e cobrem todas as formações', () => {
     for (const n of committed.nations) {
-      expect(n.squad).toHaveLength(SQUAD_SIZE);
-      expect(new Set(n.squad.map((p) => p.id)).size).toBe(SQUAD_SIZE);
-      expect(new Set(n.squad.map((p) => p.name)).size).toBe(SQUAD_SIZE);
-      for (const p of n.squad) {
+      const squad = squadOf(n);
+      expect(squad).toHaveLength(SQUAD_SIZE);
+      expect(new Set(squad.map((p) => p.id)).size).toBe(SQUAD_SIZE);
+      expect(new Set(squad.map((p) => p.name)).size).toBe(SQUAD_SIZE);
+      for (const p of squad) {
         for (const v of Object.values(p.attrs)) {
           expect(v).toBeGreaterThanOrEqual(1);
           expect(v).toBeLessThanOrEqual(99);
@@ -79,7 +94,7 @@ describe('elencos', () => {
       for (const slots of Object.values(FORMATION_SLOTS)) {
         const need = new Map<string, number>();
         for (const s of slots) need.set(s, (need.get(s) ?? 0) + 1);
-        for (const [slot, k] of need) expect(n.squad.filter((p) => p.slot === slot).length).toBeGreaterThanOrEqual(k);
+        for (const [slot, k] of need) expect(squad.filter((p) => p.slot === slot).length).toBeGreaterThanOrEqual(k);
       }
     }
   });
@@ -87,7 +102,7 @@ describe('elencos', () => {
   it('a força do elenco acompanha o Elo da seleção-era', () => {
     const xs = committed.nations.map((n) => n.elo);
     const ys = committed.nations.map((n) => {
-      const top = n.squad.map(overall).sort((a, b) => b - a).slice(0, 11);
+      const top = squadOf(n).map(overall).sort((a, b) => b - a).slice(0, 11);
       return top.reduce((a, b) => a + b, 0) / 11;
     });
     const mx = xs.reduce((a, b) => a + b, 0) / xs.length;
@@ -104,7 +119,7 @@ describe('elencos', () => {
   it('não usa nomes de jogadores reais conhecidos', () => {
     const blocked = ['pelé', 'pele', 'maradona', 'messi', 'zidane', 'cruyff', 'beckenbauer', 'ronaldo', 'ronaldinho', 'neymar', 'garrincha', 'platini', 'maldini', 'baggio', 'eusébio', 'puskás', 'yashin', 'charlton', 'zico', 'romário', 'kaká', 'xavi', 'iniesta', 'mbappé', 'haaland', 'modrić', 'ibrahimović', 'figo', 'rivaldo', 'sócrates', 'falcão', 'cafu', 'bebeto', 'klinsmann', 'matthäus', 'rummenigge', 'müller', 'lineker', 'bergkamp', 'kopa', 'fontaine', 'stoichkov', 'hagi', 'lev yashin'];
     for (const n of committed.nations) {
-      for (const p of n.squad) {
+      for (const p of squadOf(n)) {
         const lower = p.name.toLowerCase();
         for (const b of blocked) expect(lower.split(' ').includes(b), `${p.name} contém ${b}`).toBe(false);
       }

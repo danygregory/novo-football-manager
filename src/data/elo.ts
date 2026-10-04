@@ -10,7 +10,7 @@ export interface RawMatch {
   neutral: boolean;
 }
 
-export const DECADES: Decade[] = [1950, 1960, 1970, 1980, 1990, 2000, 2010, 2020];
+export const DECADES: Decade[] = [1930, 1940, 1950, 1960, 1970, 1980, 1990, 2000, 2010, 2020];
 
 /** Opostos abaixo deste Elo não entram nas médias "competitivas" de gols. */
 export const COMPETITIVE_ELO = 1650;
@@ -100,7 +100,7 @@ export interface EloResult {
 export function decadeOf(date: string): Decade | undefined {
   const year = Number(date.slice(0, 4));
   const d = Math.floor(year / 10) * 10;
-  return d >= 1950 && d <= 2020 ? (d as Decade) : undefined;
+  return d >= 1930 && d <= 2020 ? (d as Decade) : undefined;
 }
 
 /** Percorre os jogos em ordem cronológica, atualiza o Elo e acumula estatísticas por (seleção, década). */

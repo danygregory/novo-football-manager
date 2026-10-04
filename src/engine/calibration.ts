@@ -1,3 +1,5 @@
+import { COMPETITIVE_ELO } from '../data/elo';
+import { squadOf } from '../data/squads';
 import { autoLineup, autoSquad23, tacticsForStyle } from './lineup';
 import { simulateMatch, type TeamSetup } from './match';
 import type { Params } from './params';
@@ -30,46 +32,53 @@ export interface BandResult {
   goals: number;
 }
 
-export interface CalibrationResult {
+export interface PoolResult {
   games: number;
   goalsPerGame: number;
   drawRate: number;
   xgPerGame: number;
   shotsPerGame: number;
   bands: BandResult[];
+}
+
+export interface CalibrationResult extends PoolResult {
+  /** Mesma-década: só décadas com pelo menos 8 seleções-era no nível da Copa (Elo >= 1650). */
   decades: { decade: number; games: number; goals: number; real: number; diff: number }[];
+  /** O mundo inteiro (todas as seleções-era, inclusive as fracas): comparado com todos os jogos reais da base. */
+  world: PoolResult;
 }
 
-export function buildSetups(world: World): Map<string, TeamSetup> {
+/** Elo mínimo das seleções-era do "nível da Copa", a população da calibração principal (as metas do prompt). */
+export const CUP_LEVEL_ELO = COMPETITIVE_ELO;
+
+/** Setups sob demanda (com 500+ seleções-era, gerar todos os elencos de antemão seria desperdício). */
+export function buildSetups(world: World): { get(id: string): TeamSetup } {
   const decadeRate = new Map(world.decades.map((d) => [d.decade, d.goalsPerMatchCompetitive]));
-  const out = new Map<string, TeamSetup>();
-  for (const n of world.nations) {
-    const squad = autoSquad23(n.squad);
-    out.set(n.id, {
-      nationId: n.id,
-      name: n.country,
-      squad,
-      lineup: autoLineup(n.id, squad, tacticsForStyle(n.playStyle)),
-      ai: true,
-      goalRate: decadeRate.get(n.decade),
-    });
-  }
-  return out;
+  const byId = new Map(world.nations.map((n) => [n.id, n]));
+  const cache = new Map<string, TeamSetup>();
+  return {
+    get(id: string): TeamSetup {
+      let s = cache.get(id);
+      if (!s) {
+        const n = byId.get(id) as NationEra;
+        const squad = autoSquad23(squadOf(n));
+        s = { nationId: n.id, name: n.country, squad, lineup: autoLineup(n.id, squad, tacticsForStyle(n.playStyle)), ai: true, goalRate: decadeRate.get(n.decade) };
+        cache.set(id, s);
+      }
+      return s;
+    },
+  };
 }
 
-/** Simula `games` partidas em campo neutro entre seleções-era sorteadas e agrega as métricas de calibração. */
-export function runCalibration(world: World, games: number, params: Partial<Params> = {}, seed = 2026, decadeGames = 1500): CalibrationResult {
-  const setups = buildSetups(world);
-  const nations = world.nations;
+function poolStats(setups: { get(id: string): TeamSetup }, nations: NationEra[], games: number, seed: number, params: Partial<Params>): PoolResult {
   const rng = new Rng(seed);
   const acc = BANDS.map(() => ({ games: 0, sw: 0, dr: 0, up: 0, pts: 0, elo: 0, goals: 0 }));
   let goals = 0, draws = 0, xg = 0, shots = 0;
-
   for (let i = 0; i < games; i++) {
     const a = rng.pick(nations);
     let b = rng.pick(nations);
     while (b === a) b = rng.pick(nations);
-    const r = simulateMatch([setups.get(a.id) as TeamSetup, setups.get(b.id) as TeamSetup], { seed: (seed * 7919 + i) >>> 0, detail: 'summary', params });
+    const r = simulateMatch([setups.get(a.id), setups.get(b.id)], { seed: (seed * 7919 + i) >>> 0, detail: 'summary', params });
     const total = r.score[0] + r.score[1];
     goals += total;
     xg += r.stats[0].xg + r.stats[1].xg;
@@ -93,22 +102,6 @@ export function runCalibration(world: World, games: number, params: Partial<Para
       band.pts += 0.5;
     } else band.up++;
   }
-
-  const decades = world.decades.map((d) => {
-    const pool = nations.filter((n: NationEra) => n.decade === d.decade);
-    const drng = new Rng(seed + d.decade);
-    let g = 0;
-    for (let i = 0; i < decadeGames; i++) {
-      const a = drng.pick(pool);
-      let b = drng.pick(pool);
-      while (b === a) b = drng.pick(pool);
-      const r = simulateMatch([setups.get(a.id) as TeamSetup, setups.get(b.id) as TeamSetup], { seed: (seed + d.decade) * 31 + i, detail: 'summary', params });
-      g += r.score[0] + r.score[1];
-    }
-    const mean = g / decadeGames;
-    return { decade: d.decade, games: decadeGames, goals: mean, real: d.goalsPerMatchCompetitive, diff: mean - d.goalsPerMatchCompetitive };
-  });
-
   return {
     games,
     goalsPerGame: goals / games,
@@ -125,6 +118,36 @@ export function runCalibration(world: World, games: number, params: Partial<Para
       eloScore: x.games ? x.elo / x.games : 0,
       goals: x.games ? x.goals / x.games : 0,
     })),
-    decades,
   };
+}
+
+/**
+ * Simula `games` partidas em campo neutro e agrega as métricas.
+ * A população principal é o "nível da Copa" (seleções-era com Elo >= 1650), comparável aos jogos reais entre seleções desse nível;
+ * o mundo inteiro (`world`) é simulado à parte, com metade dos jogos, para checar o comportamento contra seleções fracas.
+ */
+export function runCalibration(world: World, games: number, params: Partial<Params> = {}, seed = 2026, decadeGames = 1500): CalibrationResult {
+  const setups = buildSetups(world);
+  const cup = world.nations.filter((n) => n.elo >= CUP_LEVEL_ELO);
+  const main = poolStats(setups, cup, games, seed, params);
+  const all = poolStats(setups, world.nations, Math.round(games / 2), seed + 1, params);
+
+  const decades = world.decades
+    .map((d) => ({ d, pool: cup.filter((n) => n.decade === d.decade) }))
+    .filter(({ pool }) => pool.length >= 8)
+    .map(({ d, pool }) => {
+      const drng = new Rng(seed + d.decade);
+      let g = 0;
+      for (let i = 0; i < decadeGames; i++) {
+        const a = drng.pick(pool);
+        let b = drng.pick(pool);
+        while (b === a) b = drng.pick(pool);
+        const r = simulateMatch([setups.get(a.id), setups.get(b.id)], { seed: (seed + d.decade) * 31 + i, detail: 'summary', params });
+        g += r.score[0] + r.score[1];
+      }
+      const mean = g / decadeGames;
+      return { decade: d.decade, games: decadeGames, goals: mean, real: d.goalsPerMatchCompetitive, diff: mean - d.goalsPerMatchCompetitive };
+    });
+
+  return { ...main, decades, world: all };
 }

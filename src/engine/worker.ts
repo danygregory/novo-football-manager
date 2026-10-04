@@ -4,6 +4,7 @@ import { MatchSimulator, simulateMatch, type LiveState, type MatchCommand, type 
 import {
   buildSetup,
   createTournament,
+  type Cut,
   fixtureSeed,
   playRemaining,
   playRound,
@@ -14,7 +15,7 @@ import {
   type RoundOutcome,
   type Tournament,
 } from './tournament';
-import type { Lineup, MatchEvent, MatchReport, World } from './types';
+import type { Lineup, MatchEvent, MatchReport, NationEra, World } from './types';
 
 /**
  * Worker do motor: toda simulação roda aqui, fora da thread da interface.
@@ -23,7 +24,7 @@ import type { Lineup, MatchEvent, MatchReport, World } from './types';
 const world = worldJson as unknown as World;
 
 export interface Requests {
-  createTournament: { nationId: string; squad: string[]; lineup: Lineup; seed: number };
+  createTournament: { nationId: string; squad: string[]; lineup: Lineup; seed: number; cut?: Cut; custom?: NationEra };
   /** Simula a partida do usuário na rodada atual de uma vez (detalhe completo). */
   instantUserMatch: { tournament: Tournament };
   /** Fecha a rodada (IA joga os demais jogos) com o relatório da partida do usuário. */
@@ -80,7 +81,7 @@ function delta(withReport = false): MatchDelta {
 }
 
 const handlers: { [K in RequestType]: (p: Requests[K]) => Responses[K] } = {
-  createTournament: (p) => createTournament(world, p.nationId, p.squad, p.lineup, p.seed),
+  createTournament: (p) => createTournament(world, p.nationId, p.squad, p.lineup, p.seed, { cut: p.cut, custom: p.custom }),
   instantUserMatch: ({ tournament: t }) => {
     const fixture = userFixture(t, world);
     if (!fixture) throw new Error('O usuário não tem partida nesta rodada.');

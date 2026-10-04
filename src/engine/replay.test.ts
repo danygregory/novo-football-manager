@@ -4,13 +4,14 @@ import { autoLineup, autoSquad23, tacticsForStyle } from './lineup';
 import { MatchSimulator, replayMatch, type TeamSetup } from './match';
 import { buildSetup, createTournament, fixtureSeed, replayRecord, startRecord, userFixture, type Tournament } from './tournament';
 import type { Tactics, World } from './types';
+import { squadOf } from '../data/squads';
 
 const world = worldJson as unknown as World;
 const get = (id: string) => world.nations.find((n) => n.id === id)!;
 
 function setup(id: string, ai: boolean): TeamSetup {
   const n = get(id);
-  const squad = autoSquad23(n.squad);
+  const squad = autoSquad23(squadOf(n));
   return { nationId: id, name: n.country, squad, lineup: autoLineup(id, squad, tacticsForStyle(n.playStyle)), ai };
 }
 
@@ -90,7 +91,7 @@ describe('log de comandos e replay', () => {
 
   it('o registro da partida do torneio sobrevive a JSON e reproduz o mesmo jogo', () => {
     const nation = get('BRA-1970');
-    const squad = autoSquad23(nation.squad);
+    const squad = autoSquad23(squadOf(nation));
     const lineup = autoLineup(nation.id, squad, tacticsForStyle(nation.playStyle));
     const t: Tournament = createTournament(world, nation.id, squad.map((p) => p.id), lineup, 99);
     const fixture = userFixture(t, world)!;

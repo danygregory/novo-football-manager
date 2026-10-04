@@ -4,6 +4,7 @@ import { assignSlots, autoLineup, fit } from '../../engine/lineup';
 import { overall } from '../../engine/player';
 import type { Formation, Lineup, Player, Tactics as TacticsT } from '../../engine/types';
 import { Bar, NationName, PosPill } from '../components/common';
+import { squadOf } from '../../data/squads';
 import { nationsById } from '../world';
 
 interface Props {
@@ -12,6 +13,8 @@ interface Props {
   /** Condição atual por jogador (no torneio); sem ela vale a condição do elenco. */
   cond?: Record<string, number>;
   initial?: Lineup;
+  /** Formação inicial quando ainda não há escalação (ex.: a escolhida no draft). */
+  initialFormation?: Formation;
   confirmLabel: string;
   onConfirm: (lineup: Lineup) => void;
   onBack: () => void;
@@ -23,15 +26,15 @@ const CONTROLS: { key: 'pressing' | 'lineHeight' | 'tempo'; label: string; low: 
   { key: 'tempo', label: 'Ritmo', low: 'Cadenciado: passes mais seguros, menos chances.', high: 'Acelerado: mais chances e mais cansaço, passes menos precisos.' },
 ];
 
-export function Tactics({ nationId, called, cond, initial, confirmLabel, onConfirm, onBack }: Props) {
+export function Tactics({ nationId, called, cond, initial, initialFormation, confirmLabel, onConfirm, onBack }: Props) {
   const nation = nationsById.get(nationId)!;
   const players: Player[] = useMemo(
-    () => nation.squad.filter((p) => called.includes(p.id)).map((p) => ({ ...p, condition: cond?.[p.id] ?? p.condition })),
+    () => squadOf(nation).filter((p) => called.includes(p.id)).map((p) => ({ ...p, condition: cond?.[p.id] ?? p.condition })),
     [nation, called, cond],
   );
   const byId = useMemo(() => new Map(players.map((p) => [p.id, p])), [players]);
 
-  const [tactics, setTactics] = useState<TacticsT>(initial?.tactics ?? { formation: '4-4-2', pressing: 0.5, lineHeight: 0.5, tempo: 0.5 });
+  const [tactics, setTactics] = useState<TacticsT>(initial?.tactics ?? { formation: initialFormation ?? '4-4-2', pressing: 0.5, lineHeight: 0.5, tempo: 0.5 });
   const [starters, setStarters] = useState<string[]>(() => initial?.starters ?? autoLineup(nationId, players, tactics).starters);
 
   const slots = FORMATION_SLOTS[tactics.formation];

@@ -3,12 +3,13 @@ import worldJson from '../../data/world.json';
 import { autoLineup, autoSquad23, tacticsForStyle } from './lineup';
 import { MAX_DECISIONS, MatchSimulator, replayMatch, type Decision, type TeamSetup } from './match';
 import type { World } from './types';
+import { squadOf } from '../data/squads';
 
 const world = worldJson as unknown as World;
 const get = (id: string) => world.nations.find((n) => n.id === id)!;
 function setup(id: string, ai: boolean): TeamSetup {
   const n = get(id);
-  const squad = autoSquad23(n.squad);
+  const squad = autoSquad23(squadOf(n));
   return { nationId: id, name: n.country, squad, lineup: autoLineup(id, squad, tacticsForStyle(n.playStyle)), ai };
 }
 const mk = (seed: number, knockout = false) => new MatchSimulator([setup('BRA-1970', false), setup('GER-1980', true)], { seed, knockout });

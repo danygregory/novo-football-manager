@@ -190,3 +190,28 @@ tr.me td { color: var(--accent); font-weight: 650; }
 .so-mark.goal { color: var(--good); }
 .so-mark.miss { color: var(--bad); }
 .so-mark.empty { color: var(--muted); }
+
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+.filters input[type=search] { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: .35em .6em; min-width: 220px; font: inherit; }
+.pick-detail { margin-bottom: 10px; }
+.pick-list { max-height: 58vh; overflow: auto; }
+.pick-list thead th { position: sticky; top: 0; background: var(--panel); z-index: 1; }
+
+.modes button { padding: 1.1em 1.3em; }
+.choices button.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+input.text { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: .45em .7em; font: inherit; width: 100%; }
+.swatch { width: 44px; height: 28px; padding: 0; border-radius: 6px; border: 2px solid var(--line); }
+.swatch.active { border-color: var(--accent); }
+.draft-grid { display: grid; grid-template-columns: 420px minmax(0, 1fr); gap: 14px; align-items: start; }
+@media (max-width: 1000px) { .draft-grid { grid-template-columns: 1fr; } }
+.dpitch { background: #2f7a45; background-image: linear-gradient(0deg, rgba(255,255,255,.05) 50%, transparent 50%); background-size: 100% 80px; border-radius: 10px; padding: 12px 8px; display: grid; gap: 14px; }
+.drow { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+.dslot { width: 74px; min-height: 66px; display: grid; gap: 2px; justify-items: center; align-content: center; padding: .3em; border-radius: 10px; border: 2px dashed rgba(255,255,255,.4); background: rgba(0,0,0,.25); font-size: .78rem; line-height: 1.1; }
+.dslot.filled { border-style: solid; border-color: rgba(255,255,255,.6); background: rgba(0,0,0,.5); }
+.dslot.can { border-color: var(--accent); background: rgba(242,199,68,.25); animation: blink-soft 1.2s ease-in-out infinite; }
+@keyframes blink-soft { 50% { background: rgba(242,199,68,.45); } }
+.draft-list { max-height: 52vh; overflow: auto; }
+.draft-list thead th { position: sticky; top: 0; background: var(--panel); }
+tr.taken td { opacity: .35; text-decoration: line-through; }
+.reserves { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+@media (prefers-reduced-motion: reduce) { .dslot.can { animation: none; } }

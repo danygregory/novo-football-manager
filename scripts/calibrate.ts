@@ -13,7 +13,7 @@ const t0 = performance.now();
 const r = runCalibration(world, games, overrides);
 const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
 
-console.log(`\nCalibração: ${r.games} jogos em campo neutro (${((performance.now() - t0) / 1000).toFixed(1)} s)`);
+console.log(`\nCalibração (nível da Copa, Elo >= 1650): ${r.games} jogos em campo neutro (${((performance.now() - t0) / 1000).toFixed(1)} s)`);
 console.log(`Gols/jogo: ${r.goalsPerGame.toFixed(2)}   (alvo 2,5 a 2,8)`);
 console.log(`Empates:   ${pct(r.drawRate)}   (alvo 23% a 28%)`);
 console.log(`xG/jogo:   ${r.xgPerGame.toFixed(2)}   Finalizações/jogo: ${r.shotsPerGame.toFixed(1)}`);
@@ -32,3 +32,16 @@ console.table(
 );
 console.log('Mesma década (alvo: a até 0,3 da média real):');
 console.table(r.decades.map((d) => ({ década: d.decade, simulado: d.goals.toFixed(2), real: d.real.toFixed(2), diferença: d.diff.toFixed(2), ok: Math.abs(d.diff) <= 0.3 ? 'sim' : 'NÃO' })));
+
+console.log(`\nMundo inteiro (todas as ${world.nations.length} seleções-era, ${r.world.games} jogos): ${r.world.goalsPerGame.toFixed(2)} gols/jogo, empates ${pct(r.world.drawRate)}`);
+console.table(
+  r.world.bands.map((b) => ({
+    'dif. Elo': b.label,
+    jogos: b.games,
+    'mais forte vence': pct(b.strongWins),
+    empate: pct(b.draws),
+    zebra: pct(b.upsets),
+    'pontos simulados': b.score.toFixed(3),
+    'gols/jogo': b.goals.toFixed(2),
+  })),
+);

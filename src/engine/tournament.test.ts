@@ -17,12 +17,13 @@ import {
   type Tournament,
 } from './tournament';
 import type { World } from './types';
+import { squadOf } from '../data/squads';
 
 const world = worldJson as unknown as World;
 
 function newCup(nationId = 'BRA-1970', seed = 7): Tournament {
   const nation = world.nations.find((n) => n.id === nationId)!;
-  const squad = autoSquad23(nation.squad);
+  const squad = autoSquad23(squadOf(nation));
   const lineup = autoLineup(nationId, squad, tacticsForStyle(nation.playStyle));
   return createTournament(world, nationId, squad.map((p) => p.id), lineup, seed);
 }
@@ -122,5 +123,79 @@ describe('rodada', () => {
     t = playRound(world, t, report).tournament;
     const after = t.cond[t.userLineup.starters[5] as string] as number;
     expect(after).toBeLessThan(before + 5);
+  });
+});
+
+import { finalizeDraft, greedyDraft } from '../data/draft';
+import { cutSizes, drawOpponents, withCustom } from './tournament';
+
+describe('recorte da Copa e potes', () => {
+  const user = 'BRA-1970';
+  const mk = (cut: 'all' | 1930 | 1970 | 2020, seed = 5) => {
+    const nation = world.nations.find((n) => n.id === user)!;
+    const squad = autoSquad23(squadOf(nation));
+    return createTournament(world, user, squad.map((p) => p.id), autoLineup(user, squad, tacticsForStyle(nation.playStyle)), seed, { cut });
+  };
+
+  it('uma década específica sorteia os 31 adversários só dela; "todas as eras" mistura décadas', () => {
+    const t70 = mk(1970);
+    expect(t70.participants).toHaveLength(32);
+    expect(t70.participants[0]).toBe(user);
+    for (const id of t70.participants) expect(world.nations.find((n) => n.id === id)?.decade).toBe(1970);
+    const decades = new Set(mk('all').participants.map((id) => world.nations.find((n) => n.id === id)?.decade));
+    expect(decades.size).toBeGreaterThan(4);
+    expect(new Set(t70.participants).size).toBe(32);
+  });
+
+  it('o sorteio é determinístico por seed e muda com a seed', () => {
+    expect(mk('all', 1).participants).toEqual(mk('all', 1).participants);
+    expect(mk('all', 1).participants).not.toEqual(mk('all', 2).participants);
+    expect(drawOpponents(world, user, 9, 2020)).toEqual(drawOpponents(world, user, 9, 2020));
+  });
+
+  it('as 32 seleções são distribuídas em 4 potes por força: cada grupo recebe uma de cada pote', () => {
+    for (const cut of ['all', 1970, 1930] as const) {
+      const t = mk(cut, 11);
+      const rank = new Map(
+        [...t.participants].map((id) => world.nations.find((n) => n.id === id)!).sort((a, b) => b.elo - a.elo || a.id.localeCompare(b.id)).map((n, i) => [n.id, Math.floor(i / 8)] as const),
+      );
+      for (const g of t.groups) expect(new Set(g.map((id) => rank.get(id))).size).toBe(4);
+    }
+  });
+
+  it('só oferece recortes com seleções suficientes e falha com um recorte pequeno demais', () => {
+    const sizes = cutSizes(world);
+    expect(sizes.get('all')).toBe(world.nations.length);
+    for (const [k, n] of sizes) if (k !== 'all') expect(n).toBeGreaterThanOrEqual(32);
+    const tiny: typeof world = { ...world, nations: world.nations.filter((n) => n.decade === 1970).slice(0, 20) };
+    expect(() => drawOpponents(tiny, 'X-1', 1, 'all')).toThrow();
+  });
+});
+
+describe('Copa com um time montado no draft', () => {
+  it('joga a Copa inteira (63 jogos), o time aparece nos grupos e há campeão e prêmios', () => {
+    const state = greedyDraft(world, { seed: 77, name: 'Time dos Amigos', colors: ['#112233', '#ffcc00'], formation: '4-3-3', memory: false });
+    const team = finalizeDraft(state);
+    const w = withCustom(world, team);
+    const squad = team.customSquad!;
+    let t = createTournament(world, team.id, squad.map((p) => p.id), autoLineup(team.id, squad, tacticsForStyle(team.playStyle)), 31, { cut: 'all', custom: team });
+    expect(t.groups.flat()).toContain(team.id);
+    while (t.stage !== 'DONE') {
+      const mine = userFixture(t, w);
+      if (!mine) {
+        t = playRemaining(w, t);
+        break;
+      }
+      const report = simulateMatch([buildSetup(w, t, mine.home, mine.home === team.id), buildSetup(w, t, mine.away, mine.away === team.id)], {
+        seed: fixtureSeed(t, mine),
+        knockout: !t.stage.startsWith('G'),
+        detail: 'summary',
+      });
+      t = playRound(w, t, report).tournament;
+    }
+    expect(t.results).toHaveLength(63);
+    expect(t.champion).toBeTruthy();
+    expect(awards(t).bestPlayer).toBeDefined();
+    expect(t.custom?.country).toBe('Time dos Amigos');
   });
 });
