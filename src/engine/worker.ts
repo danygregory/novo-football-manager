@@ -53,7 +53,7 @@ export interface Responses {
   instantUserMatch: { report: MatchReport; fixture: Fixture; userSide: 0 | 1; record: MatchRecord };
   playRound: RoundOutcome;
   playRemaining: Tournament;
-  matchStart: MatchDelta & { fixture: Fixture; userSide: 0 | 1 };
+  matchStart: MatchDelta & { fixture: Fixture; userSide: 0 | 1; seed: number };
   matchAdvance: MatchDelta;
   matchFinish: MatchDelta;
   matchSubstitute: MatchDelta;
@@ -103,7 +103,7 @@ const handlers: { [K in RequestType]: (p: Requests[K]) => Responses[K] } = {
     ];
     const sim = new MatchSimulator(setups, { seed: fixtureSeed(t, fixture), knockout: !t.stage.startsWith('G'), detail: 'full' });
     session = { sim, cursor: 0, record: startRecord(t, fixture, setups) };
-    return { ...delta(), fixture, userSide: fixture.home === t.userNationId ? 0 : 1 };
+    return { ...delta(), fixture, userSide: fixture.home === t.userNationId ? 0 : 1, seed: fixtureSeed(t, fixture) };
   },
   matchAdvance: ({ until }) => {
     session?.sim.playUntil(until);
