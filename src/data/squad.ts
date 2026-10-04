@@ -78,6 +78,39 @@ const POSITION_BASE: Record<Position, Attributes> = {
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
+/** Traço especial do craque por posição: o que ele faz de diferente e quanto reforça seus atributos. */
+const STAR_TRAITS: Record<Slot, { trait: string; boost: Partial<Attributes> }[]> = {
+  GK: [{ trait: 'goleiro paredão', boost: { goleiro: 10, fisico: 4 } }],
+  CB: [{ trait: 'muralha', boost: { defesa: 10, fisico: 7 } }, { trait: 'zagueiro-líder', boost: { defesa: 8, passe: 7, fisico: 4 } }],
+  LB: [{ trait: 'lateral incansável', boost: { velocidade: 9, fisico: 8, passe: 3 } }],
+  RB: [{ trait: 'lateral incansável', boost: { velocidade: 9, fisico: 8, passe: 3 } }],
+  WB: [{ trait: 'lateral incansável', boost: { velocidade: 9, fisico: 8, passe: 3 } }],
+  DM: [{ trait: 'volante de ferro', boost: { defesa: 9, fisico: 8 } }],
+  CM: [{ trait: 'armador cerebral', boost: { passe: 11, drible: 4 } }],
+  AM: [{ trait: 'camisa 10 genial', boost: { passe: 9, drible: 9, finalizacao: 4 } }],
+  LW: [{ trait: 'driblador decisivo', boost: { drible: 11, finalizacao: 5, velocidade: 4 } }, { trait: 'ponta-foguete', boost: { velocidade: 12, drible: 5 } }],
+  RW: [{ trait: 'driblador decisivo', boost: { drible: 11, finalizacao: 5, velocidade: 4 } }, { trait: 'ponta-foguete', boost: { velocidade: 12, drible: 5 } }],
+  ST: [{ trait: 'artilheiro de área', boost: { finalizacao: 11, fisico: 4 } }, { trait: 'centroavante completo', boost: { finalizacao: 8, passe: 6, drible: 5 } }],
+};
+
+/** O melhor jogador do elenco vira o craque: ganha um traço especial (e o reforço de atributos que o acompanha). */
+function markStar(players: Player[], rng: Rng): void {
+  let best: Player | undefined;
+  let bestV = -Infinity;
+  for (const p of players) {
+    const v = overall(p);
+    if (v > bestV) {
+      bestV = v;
+      best = p;
+    }
+  }
+  if (!best) return;
+  const option = rng.pick(STAR_TRAITS[best.slot]);
+  for (const key of Object.keys(option.boost) as (keyof Attributes)[]) best.attrs[key] = Math.min(99, best.attrs[key] + (option.boost[key] as number));
+  best.star = true;
+  best.trait = option.trait;
+}
+
 export interface SquadInput {
   nationId: string;
   culture: Culture;
@@ -143,6 +176,7 @@ export function generateSquad(input: SquadInput): Player[] {
     };
   });
 
+  markStar(players, rng.fork('star'));
   const order: Position[] = ['GK', 'DEF', 'MID', 'FWD'];
   players.sort((a, b) => order.indexOf(a.position) - order.indexOf(b.position) || overall(b) - overall(a));
   // reatribui ids na ordem final para que sejam estáveis e legíveis.

@@ -5,18 +5,18 @@
 Há duas populações:
 
 - **Nível da Copa** (seleções-era com Elo >= 1650): é a população das metas do prompt e a que se compara com os jogos reais entre seleções desse nível.
-- **Mundo inteiro** (todas as 561 seleções-era, inclusive as fracas): confere o comportamento contra seleções fracas, comparado com todos os jogos reais da base (1930 em diante, sem amistosos).
+- **Mundo inteiro** (todas as 841 seleções-era, inclusive as fracas): confere o comportamento contra seleções fracas, comparado com todos os jogos reais da base (1930 em diante, sem amistosos).
 
 ## Alvos e resultado (20.000 jogos, nível da Copa)
 
 | Métrica | Alvo | Resultado |
 | --- | --- | --- |
-| Gols por jogo | 2,5 a 2,8 | 2,69 |
-| Empates | 23% a 28% | 25,0% |
-| Mais forte vence mais, com zebras em toda faixa | sim | sim (zebra de 11,6% a 32,5%) |
-| Mesma década: gols a até 0,3 da média real | todas as décadas com 8 ou mais seleções-era no nível | todas (maior desvio: 0,16 em 1950) |
+| Gols por jogo | 2,5 a 2,8 | 2,64 |
+| Empates | 23% a 28% | 24,6% |
+| Mais forte vence mais, com zebras em toda faixa | sim | sim (zebra de 10,1% a 33,4%) |
+| Mesma década: gols a até 0,3 da média real | todas as décadas com 8 ou mais seleções-era no nível | todas (maior desvio: 0,13 em 1930) |
 
-Mesma década (simulado contra real): 1930 3,78 x 3,85 · 1940 4,17 x 4,21 · 1950 3,90 x 3,74 · 1960 2,85 x 2,82 · 1970 2,55 x 2,46 · 1980 2,28 x 2,26 · 1990 2,39 x 2,38 · 2000 2,49 x 2,47 · 2010 2,54 x 2,50 · 2020 2,66 x 2,55.
+Mesma década (simulado contra real): 1930 3,98 x 3,85 · 1940 4,24 x 4,21 · 1950 3,75 x 3,74 · 1960 2,86 x 2,82 · 1970 2,52 x 2,46 · 1980 2,31 x 2,26 · 1990 2,43 x 2,38 · 2000 2,55 x 2,47 · 2010 2,58 x 2,50 · 2020 2,63 x 2,55.
 
 ## Referência real por faixa de diferença de Elo
 
@@ -83,18 +83,18 @@ Por jogo, entre seleções-era sorteadas: impedimento 3,1; defesa difícil 0,75;
 
 Robô guloso: a cada rodada escolhe o melhor jogador disponível (nota x encaixe) para uma vaga vazia, e só troca o sorteio (3 trocas) quando a melhor opção vale menos de 60. Depois joga uma Copa com todas as eras, com o time controlado pela mesma IA das outras seleções.
 
-Resultado com **1.000 drafts**, formações alternadas, Copa de todas as eras (sorteio com potes por força):
+Resultado com **1.000 drafts**, formações alternadas, Copa de todas as eras (sorteio com potes por força; 841 seleções-era no sorteio, com as gerações e os craques da Fase 6.7):
 
 | Fase mais longe | % dos drafts |
 | --- | --- |
-| Campeão | **12,9%** |
-| Vice | 9,5% |
-| Semifinal | 14,6% |
-| Quartas | 24,8% |
-| Oitavas | 27,1% |
-| Grupos | 11,1% |
+| Campeão | **16,6%** |
+| Vice | 11,1% |
+| Semifinal | 15,3% |
+| Quartas | 22,8% |
+| Oitavas | 24,3% |
+| Grupos | 9,9% |
 
-O alvo era campeão em menos de 40%: o robô vence 12,9% das Copas (contra 3,1% de uma seleção qualquer entre 32). O Elo médio do time do robô é 2.246 contra 1.692 dos adversários, e mesmo assim o mata-mata é de partida única, com zebras. A diferença está em escolher só entre os 40 jogadores de uma seleção sorteada ao acaso (muitas fracas) e ainda ter de preencher cada posição.
+O alvo era campeão em menos de 40%: o robô vence 16,6% das Copas (contra 3,1% de uma seleção qualquer entre 32). O Elo médio do time do robô é 2.363 contra 1.748 dos adversários, e mesmo assim o mata-mata é de partida única, com zebras. A diferença está em escolher só entre os 40 jogadores de uma seleção sorteada ao acaso (muitas fracas) e ainda ter de preencher cada posição.
 
 ## Limites conhecidos
 

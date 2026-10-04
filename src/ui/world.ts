@@ -23,7 +23,9 @@ export function registerCustom(n: NationEra | undefined): void {
   }
 }
 
-export const nationLabel = (n: NationEra) => (n.custom ? n.country : `${n.country} · anos ${String(n.decade).slice(2)}`);
+/** Período curto da seleção-era: "anos 70" ou "1950–56". */
+export const eraSpan = (n: NationEra) => (n.custom ? 'time montado' : n.kind === 'peak' ? `${n.span[0]}–${String(n.span[1]).slice(2)}` : `anos ${String(n.decade).slice(2)}`);
+export const nationLabel = (n: NationEra) => (n.custom ? n.country : `${n.country} · ${eraSpan(n)}`);
 export const nationLabelById = (id: string) => {
   const n = nationsById.get(id);
   return n ? nationLabel(n) : id;

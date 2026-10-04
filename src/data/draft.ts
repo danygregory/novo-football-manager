@@ -174,6 +174,11 @@ export function finalizeDraft(state: DraftState, id = `XI-${state.config.seed}`)
     goalsAgainst: 1.1,
     colors: { primary: state.config.colors[0], secondary: state.config.colors[1] },
     matches: 0,
+    kind: 'decade',
+    span: [2020, 2029],
+    percentile: 50,
+    record: { w: 0, d: 0, l: 0, gf: 0, ga: 0 },
+    summary: 'Time montado no draft: jogadores de várias seleções-era reunidos pelo sorteio.',
     custom: true,
     customSquad: squad,
   };

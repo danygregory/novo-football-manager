@@ -19,7 +19,7 @@ type Tab = 'groups' | 'bracket' | 'results' | 'scorers';
 const nm = (id: string) => nationsById.get(id)!.country;
 const decadeTag = (id: string) => {
   const n = nationsById.get(id)!;
-  return n.custom ? '★' : String(n.decade).slice(2);
+  return n.custom ? '★' : n.kind === 'peak' ? `${String(n.span[0]).slice(2)}–${String(n.span[1]).slice(2)}` : String(n.decade).slice(2);
 };
 
 function resultLine(r: MatchResult) {

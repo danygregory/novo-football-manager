@@ -23,7 +23,7 @@ export function CupSetup({ initial, busy, onStart, onBack }: { initial: Cut; bus
       <div className="choices">
         <button className={cut === 'all' ? 'sel' : ''} onClick={() => setCut('all')}>
           <b>Todas as eras</b>
-          <span>31 adversárias sorteadas entre as {sizes.get('all')} seleções-era de 1930 a 2020. Seleções fracas e lendárias na mesma Copa.</span>
+          <span>31 adversárias sorteadas entre as {world.nations.length} seleções-era de 1930 a 2020 (décadas e gerações), no máximo uma por país. Seleções fracas e lendárias na mesma Copa.</span>
         </button>
       </div>
       <h3 style={{ marginTop: 14 }}>Ou uma década específica</h3>
@@ -31,8 +31,8 @@ export function CupSetup({ initial, busy, onStart, onBack }: { initial: Cut; bus
         {DECADES.map((d) => {
           const n = sizes.get(d) ?? 0;
           return (
-            <button key={d} className={cut === d ? 'active' : ''} disabled={n < 32} onClick={() => setCut(d)} title={n < 32 ? 'Poucas seleções com jogos suficientes' : `${n} seleções-era`}>
-              Anos {String(d).slice(2)} <span className="muted">({n})</span>
+            <button key={d} className={cut === d ? 'active' : ''} disabled={n < 32} onClick={() => setCut(d)} title={n < 32 ? 'Poucos países com jogos suficientes' : `${n} países diferentes`}>
+              Anos {String(d).slice(2)} <span className="muted">({n} países)</span>
             </button>
           );
         })}

@@ -35,6 +35,10 @@ export interface Attributes {
 
 export interface Player {
   id: string;
+  /** Craque fictício da seleção-era, com um traço especial (ver `trait`). */
+  star?: boolean;
+  /** Traço especial do craque: "driblador decisivo", "muralha", "goleiro paredão"... */
+  trait?: string;
   name: string;
   nationality: string;
   position: Position;
@@ -65,8 +69,18 @@ export interface NationEra {
   code: string;
   /** Cultura dos nomes gerados para os jogadores. */
   culture: string;
-  /** Jogos da seleção na década (amostra do Elo). */
+  /** Jogos da seleção no período (amostra do Elo). */
   matches: number;
+  /** 'decade' = a década inteira; 'peak' = geração de 4 a 8 anos em que a seleção jogou acima da própria média. */
+  kind: 'decade' | 'peak';
+  /** Anos do período (primeiro e último). Nas décadas, o 1º e o 9º ano da década. */
+  span: [number, number];
+  /** Força relativa à época: percentil (0 a 100) entre as seleções-era da década (nas gerações, a década do meio do período). */
+  percentile: number;
+  /** Campanha real no período: vitórias, empates, derrotas e gols. */
+  record: { w: number; d: number; l: number; gf: number; ga: number };
+  /** Resumo factual da campanha real, escrito só a partir de resultados. */
+  summary: string;
   /** Time montado no draft: elenco guardado aqui (as seleções históricas geram o elenco sob demanda). */
   custom?: boolean;
   customSquad?: Player[];

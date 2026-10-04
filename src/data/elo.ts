@@ -91,7 +91,23 @@ export interface DecadeAccumulator {
   compGoals: number;
 }
 
+/** Um jogo do ponto de vista de uma seleção (para janelas de geração e resumos). */
+export interface TeamMatch {
+  team: string;
+  opp: string;
+  date: string;
+  year: number;
+  /** Elo da seleção e do adversário antes do jogo. */
+  own: number;
+  oppElo: number;
+  gf: number;
+  ga: number;
+  tournament: string;
+}
+
 export interface EloResult {
+  /** Todos os jogos de 1930 em diante, duas linhas por jogo (uma para cada seleção). */
+  log: TeamMatch[];
   eras: EraAccumulator[];
   decades: DecadeAccumulator[];
   finalRatings: Map<string, number>;
@@ -109,6 +125,7 @@ export function computeElo(matches: RawMatch[]): EloResult {
   const eras = new Map<string, EraAccumulator>();
   const decades = new Map<Decade, DecadeAccumulator>();
   const get = (t: string) => ratings.get(t) ?? INITIAL_ELO;
+  const log: TeamMatch[] = [];
 
   const era = (team: string, decade: Decade): EraAccumulator => {
     const key = `${team}|${decade}`;
@@ -142,6 +159,9 @@ export function computeElo(matches: RawMatch[]): EloResult {
         [m.home, ra, rb, m.homeScore, m.awayScore],
         [m.away, rb, ra, m.awayScore, m.homeScore],
       ];
+      const year = Number(m.date.slice(0, 4));
+      log.push({ team: m.home, opp: m.away, date: m.date, year, own: ra, oppElo: rb, gf: m.homeScore, ga: m.awayScore, tournament: m.tournament });
+      log.push({ team: m.away, opp: m.home, date: m.date, year, own: rb, oppElo: ra, gf: m.awayScore, ga: m.homeScore, tournament: m.tournament });
       for (const [team, own, opp, gf, ga] of sides) {
         const e = era(team, decade);
         e.matches++;
@@ -165,6 +185,7 @@ export function computeElo(matches: RawMatch[]): EloResult {
   }
 
   return {
+    log,
     eras: [...eras.values()],
     decades: [...decades.values()].sort((a, b) => a.decade - b.decade),
     finalRatings: ratings,

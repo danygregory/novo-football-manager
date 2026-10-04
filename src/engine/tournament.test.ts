@@ -131,7 +131,7 @@ import { cutSizes, drawOpponents, withCustom } from './tournament';
 
 describe('recorte da Copa e potes', () => {
   const user = 'BRA-1970';
-  const mk = (cut: 'all' | 1930 | 1970 | 2020, seed = 5) => {
+  const mk = (cut: 'all' | 1930 | 1970 | 2010 | 2020, seed = 5) => {
     const nation = world.nations.find((n) => n.id === user)!;
     const squad = autoSquad23(squadOf(nation));
     return createTournament(world, user, squad.map((p) => p.id), autoLineup(user, squad, tacticsForStyle(nation.playStyle)), seed, { cut });
@@ -145,6 +145,15 @@ describe('recorte da Copa e potes', () => {
     const decades = new Set(mk('all').participants.map((id) => world.nations.find((n) => n.id === id)?.decade));
     expect(decades.size).toBeGreaterThan(4);
     expect(new Set(t70.participants).size).toBe(32);
+  });
+
+  it('no máximo uma seleção-era por país na mesma Copa (décadas e gerações do mesmo país não jogam juntas)', () => {
+    for (const cut of ['all', 1970, 2010] as const) {
+      for (let seed = 0; seed < 15; seed++) {
+        const codes = mk(cut, seed).participants.map((id) => world.nations.find((n) => n.id === id)!.code);
+        expect(new Set(codes).size).toBe(32);
+      }
+    }
   });
 
   it('o sorteio é determinístico por seed e muda com a seed', () => {
@@ -165,7 +174,7 @@ describe('recorte da Copa e potes', () => {
 
   it('só oferece recortes com seleções suficientes e falha com um recorte pequeno demais', () => {
     const sizes = cutSizes(world);
-    expect(sizes.get('all')).toBe(world.nations.length);
+    expect(sizes.get('all')).toBe(new Set(world.nations.map((n) => n.code)).size);
     for (const [k, n] of sizes) if (k !== 'all') expect(n).toBeGreaterThanOrEqual(32);
     const tiny: typeof world = { ...world, nations: world.nations.filter((n) => n.decade === 1970).slice(0, 20) };
     expect(() => drawOpponents(tiny, 'X-1', 1, 'all')).toThrow();

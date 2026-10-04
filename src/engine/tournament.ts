@@ -248,16 +248,30 @@ export type Cut = 'all' | Decade;
 
 /** Sorteia os 31 adversários do recorte (todas com a mesma chance); a seleção do usuário entra à parte. */
 export function drawOpponents(world: World, userNationId: string, seed: number, cut: Cut): string[] {
-  const pool = world.nations.filter((n) => n.id !== userNationId && (cut === 'all' || n.decade === cut));
-  if (pool.length < 31) throw new Error(`O recorte tem só ${pool.length} seleções-era; são necessárias 31 adversárias.`);
-  return new Rng(hashSeed(`opp:${seed}`)).shuffle(pool).slice(0, 31).map((n) => n.id);
+  const user = world.nations.find((n) => n.id === userNationId);
+  const pool = world.nations.filter((n) => n.id !== userNationId && n.code !== user?.code && (cut === 'all' || n.decade === cut));
+  // no máximo uma seleção-era por país na mesma Copa (senão "Brasil anos 70" e "Brasil 1968-74" jogariam juntos)
+  const picked: string[] = [];
+  const codes = new Set<string>();
+  for (const n of new Rng(hashSeed(`opp:${seed}`)).shuffle(pool)) {
+    if (codes.has(n.code)) continue;
+    codes.add(n.code);
+    picked.push(n.id);
+    if (picked.length === 31) return picked;
+  }
+  throw new Error(`O recorte tem só ${picked.length} países diferentes; são necessários 31 adversários.`);
 }
 
-/** Quantas seleções-era cada recorte tem (para desabilitar décadas sem seleções suficientes). */
+/** Quantos países diferentes cada recorte tem (para desabilitar décadas sem adversários suficientes). */
 export function cutSizes(world: World): Map<Cut, number> {
-  const out = new Map<Cut, number>([['all', world.nations.length]]);
-  for (const n of world.nations) out.set(n.decade, (out.get(n.decade) ?? 0) + 1);
-  return out;
+  const codes = new Map<Cut, Set<string>>([['all', new Set()]]);
+  for (const n of world.nations) {
+    (codes.get('all') as Set<string>).add(n.code);
+    const set = codes.get(n.decade) ?? new Set<string>();
+    set.add(n.code);
+    codes.set(n.decade, set);
+  }
+  return new Map([...codes].map(([k, v]) => [k, v.size] as const));
 }
 
 export function createTournament(

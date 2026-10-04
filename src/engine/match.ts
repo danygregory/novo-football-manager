@@ -234,6 +234,10 @@ const other = (s: Side): Side => (s === 0 ? 1 : 0);
 const logit = (p: number) => Math.log(p / (1 - p));
 const sigmoid = (x: number) => 1 / (1 + Math.exp(-x));
 
+/** Traços de craque que o motor reconhece: quem finaliza e quem cria ganham mais protagonismo nos lances. */
+const SHOOTER_TRAITS = new Set(['artilheiro de área', 'centroavante completo', 'driblador decisivo', 'camisa 10 genial', 'ponta-foguete']);
+const ASSIST_TRAITS = new Set(['armador cerebral', 'camisa 10 genial', 'lateral incansável']);
+
 const SHOOTER_SLOT_WEIGHT: Record<Slot, number> = { GK: 0, CB: 0.04, LB: 0.04, RB: 0.04, WB: 0.06, DM: 0.1, CM: 0.25, AM: 0.55, LW: 0.7, RW: 0.7, ST: 1 };
 const SET_PIECE_SLOT_WEIGHT: Record<Slot, number> = { GK: 0, CB: 0.35, LB: 0.1, RB: 0.1, WB: 0.1, DM: 0.15, CM: 0.3, AM: 0.5, LW: 0.35, RW: 0.35, ST: 0.8 };
 const ASSIST_SLOT_WEIGHT: Record<Slot, number> = { GK: 0, CB: 0.1, LB: 0.4, RB: 0.4, WB: 0.5, DM: 0.35, CM: 0.8, AM: 1, LW: 0.8, RW: 0.8, ST: 0.45 };
@@ -1068,8 +1072,8 @@ export class MatchSimulator {
     const isPen = type === 'penalti';
     const slotW = type === 'cruzamento' || type === 'bola-parada' ? SET_PIECE_SLOT_WEIGHT : SHOOTER_SLOT_WEIGHT;
     const forced = forcedShooter ? S.players.find((x) => x.p.id === forcedShooter && x.onPitch) : undefined;
-    const shooter = forced ?? this.pickPlayer(side, (x) => slotW[x.slot] * Math.pow(Math.max(1, x.p.attrs.finalizacao), 2));
-    const assister = isPen || type === 'bola-parada' ? undefined : this.pickPlayer(side, (x) => (x === shooter ? 0 : ASSIST_SLOT_WEIGHT[x.slot] * Math.pow(Math.max(1, x.p.attrs.passe), 2)));
+    const shooter = forced ?? this.pickPlayer(side, (x) => slotW[x.slot] * Math.pow(Math.max(1, x.p.attrs.finalizacao), 2) * (x.p.trait && SHOOTER_TRAITS.has(x.p.trait) ? 1.4 : 1));
+    const assister = isPen || type === 'bola-parada' ? undefined : this.pickPlayer(side, (x) => (x === shooter ? 0 : ASSIST_SLOT_WEIGHT[x.slot] * Math.pow(Math.max(1, x.p.attrs.passe), 2) * (x.p.trait && ASSIST_TRAITS.has(x.p.trait) ? 1.4 : 1)));
     const keeper = D.players.find((x) => x.onPitch && x.slot === 'GK');
 
     const xg = clamp(this.params.xg[type] * (isPen ? 1 : quality * this.eraFactor), 0.01, 0.95);
