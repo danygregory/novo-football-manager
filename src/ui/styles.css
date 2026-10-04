@@ -174,3 +174,19 @@ tr.me td { color: var(--accent); font-weight: 650; }
 .momentum { display: flex; height: 12px; border-radius: 99px; overflow: hidden; background: var(--panel-2); margin-top: 4px; border: 1px solid var(--line); }
 .momentum.thin { height: 7px; }
 .momentum i { display: block; height: 100%; transition: width .6s ease; }
+
+.pen-box { width: min(860px, 96vw); }
+.pen-svg { width: 100%; height: auto; border-radius: 10px; display: block; background: #0c1830; }
+.pen-zone rect { fill: rgba(242,199,68,.10); stroke: rgba(242,199,68,.55); stroke-width: 2; cursor: pointer; }
+.pen-zone:hover rect { fill: rgba(242,199,68,.38); }
+.pen-zone text { fill: #fff; font-size: 14px; font-weight: 650; pointer-events: none; }
+.pen-name { fill: #fff; font-size: 15px; font-weight: 650; opacity: .9; }
+.pen-label { fill: #f2c744; font-size: 52px; font-weight: 900; stroke: #000; stroke-width: 6px; paint-order: stroke; animation: banner-in .3s ease-out; }
+.pen-label.gol { fill: #5ad17f; }
+.so-board { margin: 8px 0; display: grid; gap: 4px; }
+.so-row { display: grid; grid-template-columns: 170px 1fr 30px; align-items: center; gap: 10px; }
+.so-name { font-weight: 650; }
+.so-marks { display: flex; gap: 8px; font-size: 1.25rem; }
+.so-mark.goal { color: var(--good); }
+.so-mark.miss { color: var(--bad); }
+.so-mark.empty { color: var(--muted); }

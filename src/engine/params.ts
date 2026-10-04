@@ -49,6 +49,8 @@ export interface Params {
     /** Linha baixa deixa a defesa mais compacta contra a construção (linha alta, menos). */
     defLineCompact: number;
   };
+  /** Cobrança de pênalti: erro, trave e defesa conforme o canto e o encontro com o mergulho. */
+  penalty: { missLow: number; missHigh: number; post: number; saveLow: number; saveHigh: number; saveCenter: number };
   /** Chance de lesão por jogador por minuto (cresce com o cansaço). */
   injuryPerMinute: number;
   /** Fadiga por minuto: base + pressão + ritmo + altura da linha. */
@@ -73,6 +75,7 @@ export const DEFAULT_PARAMS: Params = {
   bigChanceXg: 0.11,
   postShare: 0.07,
   tactics: { attackTempo: 0.3, attackLine: 0.2, pressRecover: 0.3, defLineCompact: 0.18 },
+  penalty: { missLow: 0.04, missHigh: 0.09, post: 0.045, saveLow: 0.5, saveHigh: 0.3, saveCenter: 0.65 },
   injuryPerMinute: 0.00035,
   foulBase: 0.1,
   yellowPerFoul: 0.16,

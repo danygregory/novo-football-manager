@@ -127,6 +127,18 @@ export type EventType =
   | 'advance'
   | 'penalty-shootout';
 
+/** Zonas do gol na cobrança de pênalti: canto/meio (L, C, R) x alto/baixo (H, L). */
+export type PenaltyZone = 'LH' | 'LL' | 'CH' | 'CL' | 'RH' | 'RL';
+/** Lado do mergulho do goleiro (visto de frente para o gol, igual às zonas). */
+export type Dive = 'L' | 'C' | 'R';
+export type PenaltyOutcome = 'goal' | 'save' | 'miss' | 'post';
+
+export interface PenaltyInfo {
+  zone: PenaltyZone;
+  dive: Dive;
+  outcome: PenaltyOutcome;
+}
+
 export interface MatchEvent {
   minute: number;
   type: EventType;
@@ -141,6 +153,8 @@ export interface MatchEvent {
   t?: number;
   /** Cobrança de pênalti (disputa): convertida ou não. */
   scored?: boolean;
+  /** Pênalti (no jogo ou na disputa): canto escolhido, lado do mergulho e resultado. */
+  penalty?: PenaltyInfo;
   text: string;
 }
 

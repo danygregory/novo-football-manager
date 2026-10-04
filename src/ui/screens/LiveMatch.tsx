@@ -7,6 +7,7 @@ import { NationName } from '../components/common';
 import { engine } from '../engineClient';
 import { Choreo, type Fx, type PlayerBrief } from '../pitch/choreo';
 import { PitchView, type DotMeta } from '../pitch/PitchView';
+import { PenaltyChoice, PenaltyScene, ShootoutBoard, type Mark } from './PenaltyScreen';
 import { ChangesPanel, DecisionModal, HalftimeScreen, LivePanel, QuickSub, ShoutBar, TeamPanel } from './LiveParts';
 import { nationsById, playerById } from '../world';
 
@@ -72,6 +73,13 @@ interface Model {
   holdFetch: boolean;
   /** Decisão do motor já exibida na tela (o jogo está parado esperando a resposta). */
   decisionShown: boolean;
+  /** Cobrança de pênalti em exibição (tela própria) e placar da disputa. */
+  penaltyShow?: { ev: MatchEvent; short: boolean };
+  soMarks: [Mark[], Mark[]];
+  /** Cobranças automáticas / animações puladas na disputa. */
+  autoPens: boolean;
+  skipPens: boolean;
+  skipSignal: number;
 }
 
 export function LiveMatch({ start, speed0, reduced, onSpeed, onFinished, onBack }: { start: LiveStart; speed0: Speed; reduced: boolean; onSpeed: (s: Speed) => void; onFinished: (report: MatchReport, record: MatchRecord) => void; onBack: () => void }) {
@@ -115,12 +123,17 @@ export function LiveMatch({ start, speed0, reduced, onSpeed, onFinished, onBack 
     warp: 1,
     holdFetch: false,
     decisionShown: false,
+    soMarks: [[], []],
+    autoPens: false,
+    skipPens: false,
+    skipSignal: 0,
   });
   const [, bump] = useState(0);
   const [panel, setPanel] = useState(false);
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [quickOut, setQuickOut] = useState<string | null>(null);
+  const busyRef = useRef(false);
   const render = () => bump((n) => n + 1);
 
   const briefs = (state: LiveState): PlayerBrief[] => {
@@ -172,7 +185,10 @@ export function LiveMatch({ start, speed0, reduced, onSpeed, onFinished, onBack 
         }
       }, 2600);
     }
-    if (ev.type === 'penalty-shootout' && ev.scored) m.shootout[ev.team]++;
+    if (ev.type === 'penalty-shootout') {
+      m.soMarks[ev.team].push(ev.scored ? 'goal' : 'miss');
+      if (ev.scored) m.shootout[ev.team]++;
+    }
     if (ev.type === 'advance' || ev.type === 'possession-change') m.ticker = ev.text;
     if (FEED_TYPES.has(ev.type)) {
       addFeed({ minute: ev.minute, text: ev.text, icon: ICON[ev.type] ?? '', mine: ev.team === userSide, kind: 'event', big: DRAMATIC.has(ev.type), goal: ev.type === 'goal' });
@@ -203,6 +219,14 @@ export function LiveMatch({ start, speed0, reduced, onSpeed, onFinished, onBack 
     while (m.buffer.length) {
       const ev = m.buffer[0] as MatchEvent;
       if (!all && (ev.t ?? 0) > m.displayClock) break;
+      if (ev.penalty) {
+        // pênalti: tela própria (espera a jogada em curso terminar); instantâneo/pausa confirmam direto
+        if (!all && (choreo.busy || m.penaltyShow)) break;
+        m.buffer.shift();
+        if (all || m.skipPens) commit(ev);
+        else m.penaltyShow = { ev, short: ev.type !== 'penalty-shootout' };
+        continue;
+      }
       m.buffer.shift();
       choreo.push(ev, names);
     }
@@ -352,8 +376,8 @@ export function LiveMatch({ start, speed0, reduced, onSpeed, onFinished, onBack 
         }
         if (r.idx >= r.frames.length) stopReplay();
       } else {
-        const finishing = m.simFinished && m.buffer.length === 0 && !choreo.busy;
-        if (!m.paused && !finishing) {
+        const finishing = m.simFinished && m.buffer.length === 0 && !choreo.busy && !m.penaltyShow;
+        if (!m.paused && !finishing && !m.penaltyShow) {
           const dTau = dtReal * tauRate(m.speed);
           m.warp = rhythm();
           choreo.advance(dTau);
@@ -366,6 +390,17 @@ export function LiveMatch({ start, speed0, reduced, onSpeed, onFinished, onBack 
             startReplay();
             if (!m.replay) m.paused = false;
           }
+        }
+        // cobranças automáticas na disputa: responde sem abrir a tela de escolha
+        const dec = m.state.decision;
+        if (m.autoPens && dec && (dec.kind === 'aim' || dec.kind === 'dive') && !m.fetching && !busyRef.current && m.buffer.length === 0 && !m.penaltyShow) {
+          busyRef.current = true;
+          void call(() => engine.call('matchCommand', { cmd: { kind: 'decide', side: dec.side, id: dec.id, choice: 'auto' } })).then(() => {
+            busyRef.current = false;
+            m.holdFetch = false;
+            m.paused = false;
+            m.decisionShown = false;
+          });
         }
         // o motor parou numa decisão: mostra o modal quando a jogada em curso terminar
         if (m.state.decision && !m.decisionShown && m.buffer.length === 0 && !choreo.busy && !m.fetching) {
@@ -430,6 +465,18 @@ export function LiveMatch({ start, speed0, reduced, onSpeed, onFinished, onBack 
 
   /** Envia um comando com o jogo parado (troca, tática, conversa): alinha a tela com o motor antes. */
   const send = (cmd: MatchCommand) => void call(() => engine.call('matchCommand', { cmd }));
+
+  const penaltyDone = () => {
+    const pe = m.penaltyShow;
+    if (!pe) return;
+    m.penaltyShow = undefined;
+    commit(pe.ev);
+    if (pe.ev.type === 'goal') {
+      m.replayAt = 0;
+      pitch.current?.confetti([colors[pe.ev.team], nations[pe.ev.team].colors.secondary, '#ffffff'], pe.ev.team);
+    }
+    render();
+  };
 
   const answerDecision = (cmd: MatchCommand) =>
     void call(() => engine.call('matchCommand', { cmd })).then(() => {
@@ -561,7 +608,11 @@ export function LiveMatch({ start, speed0, reduced, onSpeed, onFinished, onBack 
         </div>
         </div>
       </div>
-      {m.decisionShown && m.state.decision && m.state.decision.side === userSide && (
+      {m.penaltyShow && <PenaltyPlayback pe={m.penaltyShow} m={m} nations={nations} colors={colors} onDone={penaltyDone} onSkipAll={() => { m.skipPens = true; m.skipSignal++; render(); }} onSkip={() => { m.skipSignal++; render(); }} />}
+      {m.decisionShown && m.state.decision && (m.state.decision.kind === 'aim' || m.state.decision.kind === 'dive') && m.state.decision.side === userSide && (
+        <PenaltyDecision decision={m.state.decision} state={m.state} userSide={userSide} nations={nations} colors={colors} busy={busy} onChoose={(c) => answerDecision({ kind: 'decide', side: userSide, id: (m.state.decision as { id: number }).id, choice: c })} onAutoRest={() => { m.autoPens = true; answerDecision({ kind: 'decide', side: userSide, id: (m.state.decision as { id: number }).id, choice: 'auto' }); }} />
+      )}
+      {m.decisionShown && m.state.decision && m.state.decision.kind !== 'aim' && m.state.decision.kind !== 'dive' && m.state.decision.side === userSide && (
         <DecisionModal state={m.state} userSide={userSide} decision={m.state.decision} busy={busy} send={answerDecision} />
       )}
       {quickOut && (
@@ -586,5 +637,63 @@ export function LiveMatch({ start, speed0, reduced, onSpeed, onFinished, onBack 
         />
       )}
     </div>
+  );
+}
+
+type Nations = readonly [ReturnType<typeof nationsById.get> & object, ReturnType<typeof nationsById.get> & object];
+
+function keeperName(state: LiveState, side: 0 | 1): string {
+  const gk = state.sides[side].onPitch.find((p) => p.slot === 'GK');
+  return gk ? (playerById(gk.id)?.name ?? 'Goleiro') : 'Goleiro';
+}
+
+function PenaltyPlayback({ pe, m, nations, colors, onDone, onSkip, onSkipAll }: { pe: { ev: MatchEvent; short: boolean }; m: Model; nations: Nations; colors: readonly [string, string]; onDone: () => void; onSkip: () => void; onSkipAll: () => void }) {
+  const ev = pe.ev;
+  const shootout = ev.type === 'penalty-shootout';
+  const side = ev.team;
+  const def = side === 0 ? 1 : 0;
+  return (
+    <div className="modal">
+      <div className="panel pen-box">
+        <div className="row between">
+          <h3 style={{ margin: 0 }}>{shootout ? 'Disputa de pênaltis' : `Pênalti para ${nations[side].country}`}</h3>
+          <div className="row">
+            <button className="ghost" onClick={onSkip}>Pular ⏭</button>
+            {shootout && <button className="ghost" onClick={onSkipAll}>Pular a disputa</button>}
+          </div>
+        </div>
+        {shootout && <ShootoutBoard names={[nations[0].country, nations[1].country]} marks={m.soMarks} />}
+        <PenaltyScene
+          takerName={playerById(ev.playerId ?? '')?.name ?? ''}
+          keeperName={keeperName(m.state, def)}
+          takerColor={colors[side]}
+          keeperColor={colors[def]}
+          result={ev.penalty}
+          short={pe.short}
+          playKey={`${ev.t}-${ev.team}-${m.soMarks[0].length + m.soMarks[1].length}`}
+          onDone={onDone}
+          skipSignal={m.skipSignal}
+        />
+      </div>
+    </div>
+  );
+}
+
+function PenaltyDecision({ decision, state, userSide, nations, colors, busy, onChoose, onAutoRest }: { decision: Extract<NonNullable<LiveState['decision']>, { kind: 'aim' | 'dive' }>; state: LiveState; userSide: 0 | 1; nations: Nations; colors: readonly [string, string]; busy: boolean; onChoose: (c: string) => void; onAutoRest: () => void }) {
+  const attacker = decision.kind === 'aim' ? userSide : userSide === 0 ? 1 : 0;
+  const defender = attacker === 0 ? 1 : 0;
+  void nations;
+  return (
+    <PenaltyChoice
+      kind={decision.kind}
+      takerName={playerById(decision.takerId)?.name ?? ''}
+      keeperName={keeperName(state, defender)}
+      takerColor={colors[attacker]}
+      keeperColor={colors[defender]}
+      busy={busy}
+      shootout={decision.shootout}
+      onChoose={onChoose}
+      onAutoRest={onAutoRest}
+    />
   );
 }

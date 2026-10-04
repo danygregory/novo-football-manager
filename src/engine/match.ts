@@ -22,6 +22,9 @@ import { overall } from './player';
 import { Rng } from './prng';
 import type {
   Attributes,
+  Dive,
+  PenaltyInfo,
+  PenaltyZone,
   EventType,
   Lineup,
   MatchEvent,
@@ -78,12 +81,17 @@ export type MatchCommand =
  * - desperate: perdendo após os 75'. choice = 'allin' | 'hold'.
  * - penalty: pênalti a favor. choice = id do batedor.
  * - shootout: ordem dos batedores da disputa. order = ids (os 5 primeiros batem primeiro).
+ * - aim / dive: canto da cobrança do usuário (PenaltyZone) ou lado do goleiro do usuário (Dive); 'auto' deixa o motor sortear.
  */
 export type Decision =
   | { id: number; kind: 'injury'; side: 0 | 1; playerId: string }
   | { id: number; kind: 'desperate'; side: 0 | 1 }
   | { id: number; kind: 'penalty'; side: 0 | 1 }
-  | { id: number; kind: 'shootout'; side: 0 | 1 };
+  | { id: number; kind: 'shootout'; side: 0 | 1 }
+  /** Batedor do usuário: canto da cobrança (zona) ou 'auto'. */
+  | { id: number; kind: 'aim'; side: 0 | 1; takerId: string; shootout: boolean }
+  /** Goleiro do usuário: lado do mergulho ou 'auto', quando o adversário cobra. */
+  | { id: number; kind: 'dive'; side: 0 | 1; takerId: string; shootout: boolean };
 
 /** No máximo 3 pausas de decisão por partida para cada time do usuário (a disputa de pênaltis não conta). */
 export const MAX_DECISIONS = 3;
@@ -255,6 +263,10 @@ export class MatchSimulator {
   private momentumLog: { t: number; side: Side; w: number }[] = [];
   private stopAtBreak = false;
   private pending?: Decision;
+  /** Pênalti em andamento no jogo (escolhas já feitas). */
+  private pen?: { side: Side; takerId: string; aim?: PenaltyZone | 'auto'; dive?: Dive | 'auto' };
+  /** Disputa de pênaltis em andamento (passo a passo, esperando as escolhas do usuário). */
+  private so?: { takers: PState[][]; keepers: (PState | undefined)[]; res: [number, number]; taken: [number, number]; k: number; aim?: PenaltyZone | 'auto'; dive?: Dive | 'auto'; over: boolean };
   private decisionSeq = 1;
   /** Fator do ambiente de gols da era: divide-se entre mais posses e chances melhores. */
   private eraFactor = 1;
@@ -614,7 +626,13 @@ export class MatchSimulator {
   // ---------- momentos de decisão ----------
 
   /** Abre (ou resolve sozinho, se o usuário já usou as 3 pausas) uma decisão. Devolve true se o jogo ficou parado. */
-  private open(decision: { kind: 'injury'; side: Side; playerId: string } | { kind: 'desperate' | 'penalty' | 'shootout'; side: Side }, counts = true): boolean {
+  private open(
+    decision:
+      | { kind: 'injury'; side: Side; playerId: string }
+      | { kind: 'desperate' | 'penalty' | 'shootout'; side: Side }
+      | { kind: 'aim' | 'dive'; side: Side; takerId: string; shootout: boolean },
+    counts = true,
+  ): boolean {
     const s = this.sides[decision.side];
     if (s.setup.ai || (counts && s.decisions >= MAX_DECISIONS)) return false;
     if (counts) s.decisions++;
@@ -667,7 +685,57 @@ export class MatchSimulator {
   private awardPenalty(side: Side): void {
     this.ball = { team: side, zone: 'ATT', mode: 'build' };
     if (this.open({ kind: 'penalty', side })) return;
-    this.shoot(side, 'penalti', 1);
+    const taker = this.pickPlayer(side, (x) => SHOOTER_SLOT_WEIGHT[x.slot] * Math.pow(Math.max(1, x.p.attrs.finalizacao), 2));
+    this.beginPenalty(side, taker.p.id);
+  }
+
+  /** Definido o batedor, abre (se for do usuário) a escolha do canto e do lado do goleiro; depois cobra. */
+  private beginPenalty(side: Side, takerId: string): void {
+    this.pen = { side, takerId };
+    this.advancePenalty();
+  }
+
+  private advancePenalty(): void {
+    const p = this.pen;
+    if (!p) return;
+    const defender = other(p.side);
+    if (!this.sides[p.side].setup.ai && p.aim === undefined) {
+      this.open({ kind: 'aim', side: p.side, takerId: p.takerId, shootout: false }, false);
+      return;
+    }
+    if (!this.sides[defender].setup.ai && p.dive === undefined) {
+      this.open({ kind: 'dive', side: defender, takerId: p.takerId, shootout: false }, false);
+      return;
+    }
+    this.shoot(p.side, 'penalti', 1, p.takerId);
+    this.pen = undefined;
+  }
+
+  /**
+   * Cobrança de pênalti: o canto (escolhido ou sorteado) encontra o mergulho do goleiro (escolhido ou sorteado).
+   * Erro e trave dependem do canto e da frieza do batedor; a defesa só acontece se o goleiro for para o lado certo.
+   */
+  private penaltyKick(taker: PState, keeper: PState | undefined, aim: PenaltyZone | 'auto', dive: Dive | 'auto'): PenaltyInfo {
+    const pr = this.params.penalty;
+    const f = (x: PState) => (1 - this.params.fatigueImpact) + this.params.fatigueImpact * (x.cond / 100);
+    // frieza: finalização com um pouco de passe (visão/controle), reduzida pelo cansaço
+    const q = clamp(((0.7 * taker.p.attrs.finalizacao + 0.3 * taker.p.attrs.passe) * f(taker) - 45) / 45, 0, 1);
+    const gkq = keeper ? clamp((keeper.p.attrs.goleiro * f(keeper) - 50) / 50, 0, 1) : 0;
+    const zones: PenaltyZone[] = ['LH', 'LL', 'CH', 'CL', 'RH', 'RL'];
+    const zone = aim === 'auto' ? this.rng.weighted(zones, [0.6 + q * 0.8, 1, 0.25, 0.3, 0.6 + q * 0.8, 1]) : aim;
+    const dv: Dive = dive === 'auto' ? this.rng.weighted(['L', 'C', 'R'] as Dive[], [0.42, 0.16, 0.42]) : dive;
+    const high = zone.endsWith('H');
+    const corner = zone[0] !== 'C';
+    const pMiss = (high ? pr.missHigh : pr.missLow) * (1.5 - q * 0.8);
+    const pPost = corner ? pr.post : pr.post * 0.3;
+    const u = this.rng.next();
+    if (u < pMiss) return { zone, dive: dv, outcome: 'miss' };
+    if (u < pMiss + pPost) return { zone, dive: dv, outcome: 'post' };
+    if (dv === zone[0]) {
+      const base = zone[0] === 'C' ? pr.saveCenter : high ? pr.saveHigh : pr.saveLow;
+      if (this.rng.chance(clamp(base * (0.6 + 0.8 * gkq), 0, 0.95))) return { zone, dive: dv, outcome: 'save' };
+    }
+    return { zone, dive: dv, outcome: 'goal' };
   }
 
   private doDecide(cmd: Extract<MatchCommand, { kind: 'decide' }>): boolean {
@@ -700,10 +768,26 @@ export class MatchSimulator {
       const x = s.players.find((y) => y.p.id === cmd.choice && y.onPitch && y.slot !== 'GK');
       if (!x) return false;
       this.pending = undefined;
-      this.shoot(d.side, 'penalti', 1, x.p.id);
+      this.beginPenalty(d.side, x.p.id);
       return true;
     }
-    // shootout
+    if (d.kind === 'aim' || d.kind === 'dive') {
+      const zones = ['LH', 'LL', 'CH', 'CL', 'RH', 'RL'];
+      const ok = cmd.choice === 'auto' || (d.kind === 'aim' ? zones.includes(cmd.choice) : ['L', 'C', 'R'].includes(cmd.choice));
+      if (!ok) return false;
+      this.pending = undefined;
+      if (this.so && !this.so.over) {
+        if (d.kind === 'aim') this.so.aim = cmd.choice as PenaltyZone | 'auto';
+        else this.so.dive = cmd.choice as Dive | 'auto';
+        this.finish();
+      } else if (this.pen) {
+        if (d.kind === 'aim') this.pen.aim = cmd.choice as PenaltyZone | 'auto';
+        else this.pen.dive = cmd.choice as Dive | 'auto';
+        this.advancePenalty();
+      }
+      return true;
+    }
+    // shootout (ordem dos batedores)
     s.shootoutOrder = cmd.order ?? [];
     this.pending = undefined;
     return true;
@@ -725,6 +809,7 @@ export class MatchSimulator {
         .sort((a, b) => b.p.attrs.finalizacao * (0.7 + 0.3 * b.cond / 100) - a.p.attrs.finalizacao * (0.7 + 0.3 * a.cond / 100))[0];
       return { kind: 'decide', side: d.side, id: d.id, choice: best?.p.id ?? '' };
     }
+    if (d.kind === 'aim' || d.kind === 'dive') return { kind: 'decide', side: d.side, id: d.id, choice: 'auto' };
     return { kind: 'decide', side: d.side, id: d.id, choice: '', order: [] };
   }
 
@@ -997,7 +1082,18 @@ export class MatchSimulator {
 
     S.stats.shots++;
     S.stats.xg += xg;
-    const roll = this.rng.next();
+    let roll: number;
+    let penInfo: PenaltyInfo | undefined;
+    if (isPen) {
+      penInfo = this.penaltyKick(shooter, keeper, this.pen?.aim ?? 'auto', this.pen?.dive ?? 'auto');
+      // reaproveita os ramos abaixo: cada resultado cai na faixa correspondente
+      roll =
+        penInfo.outcome === 'goal' ? 0 :
+        penInfo.outcome === 'save' ? pGoal + (pOnTarget - pGoal) / 2 :
+        penInfo.outcome === 'post' ? pOnTarget + (1 - pOnTarget) * this.params.postShare / 2 :
+        pOnTarget + (1 - pOnTarget) * (this.params.postShare + (1 - this.params.postShare) / 2);
+    } else roll = this.rng.next();
+    const pen = penInfo ? { penalty: penInfo } : {};
     const names = { ...this.ctx(side), player: shooter.p.name, other: assister?.p.name, shotType: type, xg };
 
     if (roll < pGoal) {
@@ -1012,6 +1108,7 @@ export class MatchSimulator {
         secondaryPlayerId: assister?.p.id,
         shotType: type,
         xg,
+        ...pen,
         text: `${narrateGoal(names)} (${this.scoreText()})`,
       });
       this.ball = { team: other(side), zone: 'MID', mode: 'build' };
@@ -1027,17 +1124,18 @@ export class MatchSimulator {
         secondaryPlayerId: keeper?.p.id,
         shotType: type,
         xg,
+        ...pen,
         text: (hard ? narrateHardSave : narrateSave)({ ...names, other: keeper?.p.name ?? 'o goleiro' }),
       });
     } else if ((roll - pOnTarget) / (1 - pOnTarget) < this.params.postShare) {
       this.addRating(shooter, 0);
-      this.emit('post', side, 'BOX', { playerId: shooter.p.id, shotType: type, xg, text: narratePost(names) });
+      this.emit('post', side, 'BOX', { playerId: shooter.p.id, shotType: type, xg, ...pen, text: narratePost(names) });
     } else if (xg >= this.params.bigChanceXg) {
       this.addRating(shooter, -0.25);
-      this.emit('big-miss', side, 'BOX', { playerId: shooter.p.id, shotType: type, xg, text: narrateBigMiss(names) });
+      this.emit('big-miss', side, 'BOX', { playerId: shooter.p.id, shotType: type, xg, ...pen, text: narrateBigMiss(names) });
     } else {
       this.addRating(shooter, -0.05);
-      this.emit('miss', side, 'BOX', { playerId: shooter.p.id, shotType: type, xg, text: narrateMiss(names) });
+      this.emit('miss', side, 'BOX', { playerId: shooter.p.id, shotType: type, xg, ...pen, text: narrateMiss(names) });
     }
     if (type !== 'penalti' && type !== 'bola-parada' && this.rng.chance(this.params.cornerAfterSave * (roll < pOnTarget ? 1 : 0.8))) {
       this.shoot(side, 'bola-parada', 1);
@@ -1051,15 +1149,19 @@ export class MatchSimulator {
 
   private finish(): void {
     if (this.knockout && this.score[0] === this.score[1]) {
-      // o usuário escolhe a ordem dos batedores antes da disputa
-      for (const side of [0, 1] as Side[]) {
-        const s = this.sides[side];
-        if (!s.setup.ai && s.shootoutOrder === undefined && !this.pending) {
-          this.open({ kind: 'shootout', side }, false);
-          return;
+      if (!this.so) {
+        // o usuário escolhe a ordem dos batedores antes da disputa
+        for (const side of [0, 1] as Side[]) {
+          const s = this.sides[side];
+          if (!s.setup.ai && s.shootoutOrder === undefined && !this.pending) {
+            this.open({ kind: 'shootout', side }, false);
+            return;
+          }
         }
+        this.initShootout();
       }
-      this.runShootout();
+      this.stepShootout();
+      if (!this.so || !this.so.over) return; // espera uma escolha de canto ou de mergulho do usuário
     }
     this.done = true;
     this.emit('fulltime', this.ball.team, 'MID', {
@@ -1067,7 +1169,7 @@ export class MatchSimulator {
     });
   }
 
-  private runShootout(): void {
+  private initShootout(): void {
     const takers = [0, 1].map((i) => {
       const s = this.sides[i as Side];
       const field = s.players.filter((x) => x.onPitch && x.slot !== 'GK').sort((a, b) => b.p.attrs.finalizacao - a.p.attrs.finalizacao);
@@ -1076,40 +1178,53 @@ export class MatchSimulator {
       return [...chosen, ...field.filter((x) => !chosen.includes(x))];
     });
     const keepers = [0, 1].map((i) => this.sides[i as Side].players.find((x) => x.onPitch && x.slot === 'GK'));
-    const res: [number, number] = [0, 0];
-    const taken: [number, number] = [0, 0];
-    const kick = (side: Side): void => {
-      const list = takers[side] as PState[];
-      const taker = list[taken[side] % list.length] as PState;
-      const keeper = keepers[other(side)];
-      taken[side]++;
-      const p = clamp(0.76 + 0.004 * (taker.p.attrs.finalizacao - 70) - 0.003 * ((keeper?.p.attrs.goleiro ?? 50) - 70), 0.4, 0.95);
-      const scored = this.rng.chance(p);
-      if (scored) res[side]++;
+    this.so = { takers, keepers, res: [0, 0], taken: [0, 0], k: 0, over: false };
+  }
+
+  /** Cobra até acabar a disputa ou até faltar uma escolha do usuário (canto ao bater, lado ao defender). */
+  private stepShootout(): void {
+    const so = this.so;
+    if (!so) return;
+    let guard = 0;
+    while (!so.over && guard++ < 80) {
+      const side = (so.k % 2) as Side;
+      const defender = other(side);
+      const list = so.takers[side] as PState[];
+      const taker = list[so.taken[side] % list.length] as PState;
+      if (!this.sides[side].setup.ai && so.aim === undefined) {
+        this.open({ kind: 'aim', side, takerId: taker.p.id, shootout: true }, false);
+        return;
+      }
+      if (!this.sides[defender].setup.ai && so.dive === undefined) {
+        this.open({ kind: 'dive', side: defender, takerId: taker.p.id, shootout: true }, false);
+        return;
+      }
+      const out = this.penaltyKick(taker, so.keepers[defender], so.aim ?? 'auto', so.dive ?? 'auto');
+      so.aim = undefined;
+      so.dive = undefined;
+      so.taken[side]++;
+      so.k++;
+      const scored = out.outcome === 'goal';
+      if (scored) so.res[side]++;
       this.emit('penalty-shootout', side, 'BOX', {
         playerId: taker.p.id,
         scored,
+        penalty: out,
         text: narrateShootoutKick({ ...this.ctx(side), player: taker.p.name, scored }),
       });
-    };
-    for (let round = 0; round < 5; round++) {
-      for (const side of [0, 1] as Side[]) {
-        kick(side);
-        const left0 = 5 - taken[0];
-        const left1 = 5 - taken[1];
-        if (res[0] > res[1] + left1 || res[1] > res[0] + left0) {
-          this.shootout = res;
-          return;
-        }
+      const [t0, t1] = so.taken;
+      const [r0, r1] = so.res;
+      if (t0 <= 5 && t1 <= 5) {
+        // antes de completar as 5 cobranças de cada um: decidiu se um não alcança mais o outro
+        if (r0 > r1 + (5 - t1) || r1 > r0 + (5 - t0)) so.over = true;
+      } else if (t0 === t1 && r0 !== r1) so.over = true; // morte súbita: rodada completa com diferença
+      if (!so.over && t0 > 25 && t0 === t1) {
+        // salvaguarda contra disputas infinitas
+        so.res[this.rng.chance(0.5) ? 0 : 1]++;
+        so.over = true;
       }
+      if (so.over) this.shootout = [so.res[0], so.res[1]];
     }
-    let guard = 0;
-    while (res[0] === res[1] && guard++ < 20) {
-      kick(0);
-      kick(1);
-    }
-    if (res[0] === res[1]) res[this.rng.chance(0.5) ? 0 : 1]++;
-    this.shootout = res;
   }
 
   // ---------- utilidades ----------

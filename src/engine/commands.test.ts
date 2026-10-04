@@ -44,19 +44,19 @@ describe('gritos táticos', () => {
     expect(avg('drop')).toBeGreaterThan(avg('press'));
   });
 
-  it('o grito "bola longa" aumenta as chances em bola longa e o "toque curto" as reduz (mais finalizações a favor com bola longa/contra-ataque)', () => {
-    const shots = (shout: 'long' | 'short') => {
+  it('"bola longa" gera mais lances de ligação direta (mais impedimentos) que "toque curto"', () => {
+    const offsides = (shout: 'long' | 'short') => {
       let t = 0;
-      for (let seed = 0; seed < 60; seed++) {
+      for (let seed = 0; seed < 150; seed++) {
         const sim = mk(seed);
         sim.playThrough(10);
         sim.execute({ kind: 'shout', side: 0, shout });
         sim.playThrough(20.5);
-        t += sim.report().stats[0].shots;
+        t += sim.report().stats[0].offsides;
       }
       return t;
     };
-    expect(shots('long')).not.toBe(shots('short'));
+    expect(offsides('long')).toBeGreaterThan(offsides('short'));
   });
 });
 

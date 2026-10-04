@@ -13,6 +13,13 @@ function setup(id: string, ai: boolean): TeamSetup {
 }
 const mk = (seed: number, knockout = false) => new MatchSimulator([setup('BRA-1970', false), setup('GER-1980', true)], { seed, knockout });
 
+/** Resposta padrão a qualquer decisão (para os testes que só querem o jogo andando). */
+function answer(sim: MatchSimulator, d: Decision, penaltyTaker?: string): void {
+  const choice =
+    d.kind === 'injury' ? 'keep' : d.kind === 'desperate' ? 'hold' : d.kind === 'aim' || d.kind === 'dive' ? 'auto' : d.kind === 'penalty' ? (penaltyTaker ?? sim.onPitch(0).filter((p) => p.position !== 'GK')[0]!.id) : '';
+  sim.execute({ kind: 'decide', side: d.side, id: d.id, choice, order: d.kind === 'shootout' ? [] : undefined });
+}
+
 /** Joga até aparecer uma decisão do tipo pedido (ou o jogo acabar). */
 function untilDecision(sim: MatchSimulator, kind?: Decision['kind']): Decision | undefined {
   let guard = 0;
@@ -21,7 +28,7 @@ function untilDecision(sim: MatchSimulator, kind?: Decision['kind']): Decision |
     const d = sim.pendingDecision;
     if (!d) continue;
     if (!kind || d.kind === kind) return d;
-    sim.execute({ kind: 'decide', side: d.side, id: d.id, choice: d.kind === 'injury' ? 'keep' : d.kind === 'desperate' ? 'hold' : '' });
+    answer(sim, d);
   }
   return undefined;
 }
@@ -88,6 +95,10 @@ describe('momentos de decisão', () => {
       if (!d) continue;
       const taker = sim.onPitch(0).filter((p) => p.position !== 'GK').sort((a, b) => a.attrs.finalizacao - b.attrs.finalizacao)[0]!;
       sim.execute({ kind: 'decide', side: 0, id: d.id, choice: taker.id });
+      // depois do batedor, o usuário escolhe o canto (aqui, automático)
+      const aim = sim.pendingDecision;
+      expect(aim?.kind).toBe('aim');
+      sim.execute({ kind: 'decide', side: 0, id: aim!.id, choice: 'auto' });
       const ev = [...sim.eventLog].reverse().find((e) => e.shotType === 'penalti');
       expect(ev?.playerId).toBe(taker.id);
       return;
@@ -104,8 +115,8 @@ describe('momentos de decisão', () => {
         sim.playUntil(sim.clockExact + 4);
         const d = sim.pendingDecision;
         if (!d) continue;
-        if (d.kind !== 'shootout') pauses++;
-        sim.execute({ kind: 'decide', side: 0, id: d.id, choice: d.kind === 'injury' ? 'keep' : d.kind === 'desperate' ? 'hold' : sim.onPitch(0)[5]!.id, order: [] });
+        if (d.kind === 'injury' || d.kind === 'desperate' || d.kind === 'penalty') pauses++;
+        answer(sim, d, sim.onPitch(0)[5]!.id);
       }
       expect(pauses).toBeLessThanOrEqual(MAX_DECISIONS);
     }
@@ -123,7 +134,7 @@ describe('momentos de decisão', () => {
         if (d.kind === 'shootout') {
           order = sim.onPitch(0).filter((p) => p.position !== 'GK').map((p) => p.id).reverse();
           sim.execute({ kind: 'decide', side: 0, id: d.id, choice: '', order });
-        } else sim.execute({ kind: 'decide', side: 0, id: d.id, choice: d.kind === 'injury' ? 'keep' : d.kind === 'desperate' ? 'hold' : sim.onPitch(0)[5]!.id });
+        } else answer(sim, d, sim.onPitch(0)[5]!.id);
       }
       if (!order) continue;
       const kicks = sim.eventLog.filter((e) => e.type === 'penalty-shootout' && e.team === 0).map((e) => e.playerId);
@@ -145,6 +156,8 @@ describe('momentos de decisão', () => {
         if (d.kind === 'shootout') live.execute({ kind: 'decide', side: 0, id: d.id, choice: '', order: live.onPitch(0).filter((p) => p.position !== 'GK').map((p) => p.id).slice(2) });
         else if (d.kind === 'penalty') live.execute({ kind: 'decide', side: 0, id: d.id, choice: live.onPitch(0)[7]!.id });
         else if (d.kind === 'desperate') live.execute({ kind: 'decide', side: 0, id: d.id, choice: 'allin' });
+        else if (d.kind === 'aim') live.execute({ kind: 'decide', side: 0, id: d.id, choice: 'RH' });
+        else if (d.kind === 'dive') live.execute({ kind: 'decide', side: 0, id: d.id, choice: 'L' });
         else live.execute({ kind: 'decide', side: 0, id: d.id, choice: 'keep' });
       }
       const original = live.report();

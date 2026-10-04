@@ -11,6 +11,7 @@ import { LiveMatch, type LiveStart } from './screens/LiveMatch';
 import { MatchIntro } from './screens/Match';
 import { PickNation } from './screens/PickNation';
 import { PostMatch } from './screens/PostMatch';
+import { PenaltyDemo } from './screens/PenaltyDemo';
 import { Squad } from './screens/Squad';
 import { Tactics } from './screens/Tactics';
 import { nationsById, world } from './world';
@@ -47,6 +48,11 @@ function loadSettings(): Settings {
 }
 
 export function App() {
+  if (typeof location !== 'undefined' && location.hash === '#penalty-demo') return <PenaltyDemo />;
+  return <MainApp />;
+}
+
+function MainApp() {
   const [g, setG] = useState<Game>(FRESH);
   const [settings, setSettings] = useState(loadSettings);
   const systemReduced = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
