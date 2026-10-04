@@ -217,3 +217,8 @@ tr.taken td { opacity: .35; text-decoration: line-through; }
 @media (prefers-reduced-motion: reduce) { .dslot.can { animation: none; } }
 
 .team-card { display: grid; gap: 2px; align-content: start; }
+
+.ach-list { display: grid; gap: 8px; }
+.ach { display: flex; gap: 10px; align-items: center; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; opacity: .55; }
+.ach.on { opacity: 1; border-color: var(--accent); background: rgba(242,199,68,.08); }
+.ach-ic { font-size: 1.4rem; }

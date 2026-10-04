@@ -10,3 +10,4 @@ export * from './calibration';
 export * from './narration';
 export * from './tournament';
 export * from './career';
+export * from './scoring';

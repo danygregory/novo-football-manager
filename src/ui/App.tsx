@@ -3,13 +3,16 @@ import { STAGE_LABEL, userFixture, type Cut, type Fixture, type MatchRecord, typ
 import { finalizeDraft, startDraft, type DraftConfig, type DraftState } from '../data/draft';
 import { squadOf } from '../data/squads';
 import type { Lineup, MatchReport } from '../engine/types';
-import { applyCup, careerCut, evaluateCup, newCareer, reputationDelta, takeTeam, type Career, type CupEvaluation } from '../engine/career';
+import { applyCup, careerCut, newCareer, reputationDelta, takeTeam, type Career, type CupEvaluation } from '../engine/career';
 import { Kit } from './components/common';
-import { KEYS, loadJson, removeKey, saveJson } from './store';
+import { KEYS, loadJson, removeKey, saveJson, todayIso } from './store';
 import { DEFAULT_SPEED, isSpeed, type Speed } from './speed';
 import { engine } from './engineClient';
 import { Cup } from './screens/Cup';
 import { CupEnd } from './screens/CupEnd';
+import { Achievements } from './screens/Achievements';
+import { ScoreCard } from './screens/ScoreCard';
+import { addToRanking, newAchievements, rankingEntry, summarizeCup, type Achievement, type CupSummary, type RankingEntry } from '../engine/scoring';
 import { CareerAfterCup, CareerChoose, CareerHome } from './screens/Career';
 import { CupSetup } from './screens/CupSetup';
 import { DraftBoard } from './screens/DraftBoard';
@@ -25,7 +28,7 @@ import { Squad } from './screens/Squad';
 import { Tactics } from './screens/Tactics';
 import { nationLabel, nationsById, registerCustom, world } from './world';
 
-type Screen = 'home' | 'mode' | 'careerStart' | 'careerHome' | 'pick' | 'squad' | 'draftSetup' | 'draft' | 'tactics' | 'cupSetup' | 'cup' | 'match' | 'live' | 'post' | 'end';
+type Screen = 'home' | 'achievements' | 'mode' | 'careerStart' | 'careerHome' | 'pick' | 'squad' | 'draftSetup' | 'draft' | 'tactics' | 'cupSetup' | 'cup' | 'match' | 'live' | 'post' | 'end';
 
 interface Game {
   screen: Screen;
@@ -33,6 +36,8 @@ interface Game {
   mode?: 'ready' | 'draft' | 'career';
   career?: Career;
   careerApplied?: boolean;
+  /** Pontuação e conquistas da Copa que acabou de terminar (calculadas uma vez). */
+  scored?: { summary: CupSummary; achievements: Achievement[] };
   careerResult?: { delta: number; ev: CupEvaluation };
   draftConfig?: DraftConfig;
   draft?: DraftState;
@@ -109,7 +114,7 @@ function MainApp() {
       const seed = Math.floor(Math.random() * 2 ** 32);
       const custom = g.mode === 'draft' ? nationsById.get(g.nationId as string) : undefined;
       const tournament = await engine.call('createTournament', { nationId: g.nationId as string, squad: g.called, lineup, seed, cut, custom: custom?.custom ? custom : undefined });
-      setG((prev) => ({ ...prev, lineup, cut, tournament, screen: 'cup', last: undefined }));
+      setG((prev) => ({ ...prev, lineup, cut, tournament, screen: 'cup', last: undefined, scored: undefined }));
     });
 
   const resetAll = () => {
@@ -171,13 +176,31 @@ function MainApp() {
       setG((prev) => ({ ...prev, tournament, screen: 'end' }));
     });
 
-  // carreira: ao terminar a Copa, atualiza a reputação, o histórico e os convites (uma vez por Copa)
+  // ao terminar a Copa: pontuação, conquistas, ranking local e (na carreira) reputação, histórico e convites, uma vez por Copa
   useEffect(() => {
-    if (g.screen !== 'end' || g.mode !== 'career' || !g.tournament || !g.career || g.careerApplied) return;
-    const ev = evaluateCup(world, g.tournament);
-    const next = applyCup(world, g.career, g.tournament, ev);
-    saveJson(KEYS.career, next);
-    setG((prev) => ({ ...prev, career: next, careerApplied: true, careerResult: { delta: reputationDelta(ev), ev } }));
+    if (g.screen !== 'end' || !g.tournament || g.scored) return;
+    const t0 = g.tournament;
+    const summary = summarizeCup(world, t0);
+    let career = g.career;
+    let careerResult = g.careerResult;
+    if (g.mode === 'career' && career && !g.careerApplied) {
+      career = applyCup(world, career, t0, summary.ev, summary.total);
+      saveJson(KEYS.career, career);
+      careerResult = { delta: reputationDelta(summary.ev), ev: summary.ev };
+    }
+    const stats = loadJson<{ cups: number }>(KEYS.stats) ?? { cups: 0 };
+    const already = new Set(Object.keys(loadJson<Record<string, string>>(KEYS.achievements) ?? {}));
+    const achievements = newAchievements(
+      summary,
+      { daily: false, careerTitles: career?.entries.filter((e) => e.champion).length, careerRep: g.mode === 'career' ? career?.rep : undefined, previousCups: stats.cups },
+      already,
+    );
+    const date = todayIso();
+    if (achievements.length) saveJson(KEYS.achievements, { ...(loadJson<Record<string, string>>(KEYS.achievements) ?? {}), ...Object.fromEntries(achievements.map((a) => [a.id, date])) });
+    const team = nationsById.get(t0.userNationId)?.country ?? t0.userNationId;
+    saveJson(KEYS.ranking, addToRanking(loadJson<RankingEntry[]>(KEYS.ranking) ?? [], rankingEntry(summary, g.mode ?? 'ready', team, date)));
+    saveJson(KEYS.stats, { cups: stats.cups + 1 });
+    setG((prev) => ({ ...prev, career, careerApplied: prev.mode === 'career' ? true : prev.careerApplied, careerResult, scored: { summary, achievements } }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [g.screen]);
 
@@ -220,7 +243,9 @@ function MainApp() {
 
       {error && <div className="error">Erro: {error}</div>}
 
-      {g.screen === 'home' && <Home canLoad={false} onNew={() => go({ screen: 'mode' })} onLoad={() => undefined} />}
+      {g.screen === 'home' && <Home canLoad={false} onNew={() => go({ screen: 'mode' })} onLoad={() => undefined} onAchievements={() => go({ screen: 'achievements' })} />}
+
+      {g.screen === 'achievements' && <Achievements onBack={() => go({ screen: 'home' })} />}
 
       {g.screen === 'mode' && (
         <ModeSelect
@@ -255,7 +280,7 @@ function MainApp() {
           }}
           onPlay={() => {
             const c = g.career as Career;
-            go({ nationId: c.nationId, called: c.called ?? [], lineup: c.lineup, careerApplied: false, careerResult: undefined, tournament: undefined, screen: c.called && c.lineup ? 'tactics' : 'squad' });
+            go({ nationId: c.nationId, called: c.called ?? [], lineup: c.lineup, careerApplied: false, careerResult: undefined, scored: undefined, tournament: undefined, screen: c.called && c.lineup ? 'tactics' : 'squad' });
           }}
         />
       )}
@@ -327,20 +352,25 @@ function MainApp() {
           t={t}
           onHome={resetAll}
           hideActions={g.mode === 'career'}
-          extra={g.mode === 'career' && g.career && g.careerResult ? (
+          extra={
+            <>
+              {g.scored && <ScoreCard summary={g.scored.summary} achievements={g.scored.achievements} />}
+              {g.mode === 'career' && g.career && g.careerResult ? (
             <CareerAfterCup
               career={g.career}
               result={g.careerResult}
               onChoose={(id) => {
                 const career = persistCareer(takeTeam(g.career as Career, id));
-                go({ career, tournament: undefined, careerApplied: false, careerResult: undefined, screen: 'careerHome' });
+                go({ career, tournament: undefined, careerApplied: false, careerResult: undefined, scored: undefined, screen: 'careerHome' });
               }}
               onKeep={() => {
                 const career = persistCareer({ ...(g.career as Career), offers: undefined });
-                go({ career, tournament: undefined, careerApplied: false, careerResult: undefined, screen: 'careerHome' });
+                go({ career, tournament: undefined, careerApplied: false, careerResult: undefined, scored: undefined, screen: 'careerHome' });
               }}
             />
-          ) : undefined}
+              ) : null}
+            </>
+          }
           onNewCup={() => (g.mode === 'draft' ? setG({ ...FRESH, mode: 'draft', draftConfig: g.draftConfig, screen: 'draftSetup' }) : setG({ ...FRESH, mode: 'ready', screen: 'pick', nationId: g.nationId }))}
         />
       )}

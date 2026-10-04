@@ -1,4 +1,4 @@
-export function Home({ onNew, onLoad, canLoad }: { onNew: () => void; onLoad: () => void; canLoad: boolean }) {
+export function Home({ onNew, onLoad, canLoad, onAchievements }: { onNew: () => void; onLoad: () => void; canLoad: boolean; onAchievements: () => void }) {
   return (
     <div className="home">
       <h1>
@@ -13,6 +13,9 @@ export function Home({ onNew, onLoad, canLoad }: { onNew: () => void; onLoad: ()
         </button>
         <button onClick={onLoad} disabled={!canLoad} title={canLoad ? '' : 'Nenhum save encontrado'}>
           Carregar save
+        </button>
+        <button className="ghost" onClick={onAchievements}>
+          Conquistas e ranking
         </button>
       </div>
     </div>

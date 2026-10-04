@@ -4,6 +4,7 @@ export const KEYS = {
   achievements: 'novo-fm-achievements',
   ranking: 'novo-fm-ranking',
   daily: 'novo-fm-daily',
+  stats: 'novo-fm-stats',
 } as const;
 
 export function loadJson<T>(key: string): T | undefined {
@@ -29,4 +30,10 @@ export function removeKey(key: string): void {
   } catch {
     /* ignora */
   }
+}
+
+/** Data local no formato aaaa-mm-dd. */
+export function todayIso(d = new Date()): string {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
