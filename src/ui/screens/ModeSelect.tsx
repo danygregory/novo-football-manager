@@ -1,4 +1,4 @@
-export function ModeSelect({ onReady, onDraft, onBack }: { onReady: () => void; onDraft: () => void; onBack: () => void }) {
+export function ModeSelect({ onCareer, hasCareer, onReady, onDraft, onBack }: { onCareer: () => void; hasCareer: boolean; onReady: () => void; onDraft: () => void; onBack: () => void }) {
   return (
     <div>
       <div className="row between" style={{ marginBottom: 14 }}>
@@ -9,6 +9,10 @@ export function ModeSelect({ onReady, onDraft, onBack }: { onReady: () => void; 
         <button className="ghost" onClick={onBack}>Voltar</button>
       </div>
       <div className="choices modes">
+        <button onClick={onCareer}>
+          <b>Carreira de técnico{hasCareer ? ' (em andamento)' : ''}</b>
+          <span>Comece com uma de 3 seleções fracas sorteadas e construa reputação Copa após Copa. Campanhas acima do esperado para a força do time sobem a reputação; fracassos derrubam. Depois de cada Copa, chegam convites de seleções à altura do seu nome.</span>
+        </button>
         <button onClick={onReady}>
           <b>Seleção pronta</b>
           <span>Escolha uma seleção-era (por exemplo, "Brasil anos 70"), com busca por década, continente e força, e convoque 23 do elenco dela.</span>

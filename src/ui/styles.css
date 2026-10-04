@@ -215,3 +215,5 @@ input.text { background: var(--panel-2); color: var(--text); border: 1px solid v
 tr.taken td { opacity: .35; text-decoration: line-through; }
 .reserves { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 @media (prefers-reduced-motion: reduce) { .dslot.can { animation: none; } }
+
+.team-card { display: grid; gap: 2px; align-content: start; }
