@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FORMATIONS } from '../../engine/formations';
-import { overall } from '../../engine/player';
-import type { LiveState } from '../../engine/match';
+import type { LiveState, MatchCommand } from '../../engine/match';
 import { STAGE_LABEL, type Fixture, type MatchRecord } from '../../engine/tournament';
-import type { MatchEvent, MatchReport, Tactics } from '../../engine/types';
+import type { MatchEvent, MatchReport } from '../../engine/types';
 import type { MatchDelta } from '../../engine/worker';
-import { Bar, NationName, PosPill } from '../components/common';
+import { NationName } from '../components/common';
 import { engine } from '../engineClient';
 import { Choreo, type Fx, type PlayerBrief } from '../pitch/choreo';
 import { PitchView, type DotMeta } from '../pitch/PitchView';
+import { ChangesPanel, HalftimeScreen, QuickSub, ShoutBar, TeamPanel } from './LiveParts';
 import { nationsById, playerById } from '../world';
 
 export interface LiveStart extends MatchDelta {
@@ -71,6 +70,8 @@ interface Model {
   replay?: { frames: ReturnType<Choreo['recent']>; idx: number; acc: number };
   replayAt: number;
   warp: number;
+  /** O motor parou no intervalo: não busca mais jogo até o usuário voltar do vestiário. */
+  holdFetch: boolean;
 }
 
 export function LiveMatch({ start, speed0, onFinished, onBack }: { start: LiveStart; speed0: Speed; onFinished: (report: MatchReport, record: MatchRecord) => void; onBack: () => void }) {
@@ -110,11 +111,13 @@ export function LiveMatch({ start, speed0, onFinished, onBack }: { start: LiveSt
     shake: 0,
     replayAt: 0,
     warp: 1,
+    holdFetch: false,
   });
   const [, bump] = useState(0);
   const [panel, setPanel] = useState(false);
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
+  const [quickOut, setQuickOut] = useState<string | null>(null);
   const render = () => bump((n) => n + 1);
 
   const briefs = (state: LiveState): PlayerBrief[] => {
@@ -207,6 +210,7 @@ export function LiveMatch({ start, speed0, onFinished, onBack }: { start: LiveSt
     if (d.state.finished) m.simFinished = true;
     if (d.report) m.report = d.report;
     if (d.record) m.record = d.record;
+    if (d.events.some((e) => e.type === 'halftime')) m.holdFetch = true;
     syncLineups();
   };
 
@@ -320,7 +324,7 @@ export function LiveMatch({ start, speed0, onFinished, onBack }: { start: LiveSt
           m.warp = rhythm();
           choreo.advance(dTau);
           m.displayClock += (dTau / SEC_PER_MIN) * m.warp;
-          if (!m.fetching && !m.simFinished && m.simClock < m.displayClock + 0.7) void fetchMore(m.displayClock + 1.3);
+          if (!m.fetching && !m.simFinished && !m.holdFetch && m.simClock < m.displayClock + 0.7) void fetchMore(m.displayClock + 1.3);
           drain();
           if (m.replayAt && now > m.replayAt && !choreo.busy && m.buffer.length === 0 && !m.fetching) {
             m.replayAt = 0;
@@ -347,6 +351,10 @@ export function LiveMatch({ start, speed0, onFinished, onBack }: { start: LiveSt
   useEffect(() => {
     if (feedEl.current) feedEl.current.scrollTop = 0;
   }, [m.feed.length]);
+  const halftimeOpen = m.halftimeBanner && !m.replay;
+  useEffect(() => {
+    if (halftimeOpen) document.querySelector('.halftime')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [halftimeOpen]);
 
   const call = async (fn: () => Promise<MatchDelta>) => {
     setBusy(true);
@@ -360,6 +368,33 @@ export function LiveMatch({ start, speed0, onFinished, onBack }: { start: LiveSt
       setBusy(false);
       render();
     }
+  };
+
+  /** Envia um comando ao motor sem parar o jogo (gritos). */
+  const sendSoft = async (cmd: MatchCommand) => {
+    try {
+      absorb(await engine.call('matchCommand', { cmd }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+    render();
+  };
+
+  /** Envia um comando com o jogo parado (troca, tática, conversa): alinha a tela com o motor antes. */
+  const send = (cmd: MatchCommand) => void call(() => engine.call('matchCommand', { cmd }));
+
+  const resumeSecondHalf = () => {
+    m.halftimeBanner = false;
+    m.holdFetch = false;
+    m.paused = false;
+    render();
+  };
+
+  const pickQuick = (id: string) => {
+    if (m.replay) stopReplay();
+    m.paused = true;
+    flushAll();
+    setQuickOut(id);
   };
 
   const togglePause = () => {
@@ -434,7 +469,6 @@ export function LiveMatch({ start, speed0, onFinished, onBack }: { start: LiveSt
                 <div className="goal-sub">{m.flash.sub}</div>
               </div>
             )}
-            {m.halftimeBanner && <div className="flash soft">Intervalo — ajuste a tática ou faça substituições</div>}
             {m.replay && <button className="skip-replay" onClick={stopReplay}>Pular replay ⏭</button>}
           </div>
           <div className="ticker muted">{m.ticker}</div>
@@ -447,8 +481,14 @@ export function LiveMatch({ start, speed0, onFinished, onBack }: { start: LiveSt
             <button className={m.halftimeBanner ? 'primary' : ''} onClick={openPanel} disabled={done || busy || m.simFinished}>Substituir / Tática</button>
             {done && <button className="primary" onClick={() => m.report && m.record && onFinished(m.report, m.record)}>Ver pós-jogo</button>}
           </div>
-          {panel && <ChangesPanel state={m.state} userSide={userSide} busy={busy} onClose={closePanel} onSub={(o, i) => call(() => engine.call('matchSubstitute', { side: userSide, outId: o, inId: i }))} onTactics={(t) => call(() => engine.call('matchTactics', { side: userSide, tactics: t }))} />}
+          <ShoutBar state={m.state} userSide={userSide} clock={m.simClock} disabled={done || m.simFinished || m.halftimeBanner} send={(c) => void sendSoft(c)} />
+          {m.halftimeBanner && !done && (
+            <HalftimeScreen state={m.state} userSide={userSide} fixtureNations={[fixture.home, fixture.away]} busy={busy} send={send} onResume={resumeSecondHalf} />
+          )}
+          {panel && <ChangesPanel state={m.state} userSide={userSide} busy={busy} onClose={closePanel} send={send} />}
         </div>
+        <div className="side-col">
+          <TeamPanel state={m.state} userSide={userSide} onPick={pickQuick} />
         <div className="panel feed">
           <h3>Narração</h3>
           <ul ref={feedEl} className="timeline">
@@ -460,81 +500,29 @@ export function LiveMatch({ start, speed0, onFinished, onBack }: { start: LiveSt
           </ul>
           <div className="muted" style={{ fontSize: '.8rem' }}>Trocas restantes: {side.subsLeft}</div>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function ChangesPanel({ state, userSide, busy, onClose, onSub, onTactics }: { state: LiveState; userSide: 0 | 1; busy: boolean; onClose: () => void; onSub: (out: string, inn: string) => void; onTactics: (t: Tactics) => void }) {
-  const side = state.sides[userSide];
-  const [out, setOut] = useState<string>('');
-  const [inn, setInn] = useState<string>('');
-  const [tac, setTac] = useState<Tactics>(side.tactics);
-  const outs = side.onPitch.filter((p) => p.slot !== 'GK' || side.bench.some((b) => playerById(b.id)?.position === 'GK'));
-  const dirty = JSON.stringify(tac) !== JSON.stringify(side.tactics);
-
-  return (
-    <div className="panel" style={{ marginTop: 12 }}>
-      <div className="row between">
-        <h3 style={{ margin: 0 }}>Mudanças · aos {state.minute}'</h3>
-        <button className="primary" onClick={onClose}>Retomar jogo</button>
-      </div>
-      <div className="cols" style={{ marginTop: 10 }}>
-        <div>
-          <h3>Substituição ({side.subsLeft} restantes)</h3>
-          <div className="muted" style={{ fontSize: '.85rem' }}>Sai</div>
-          <table>
-            <tbody>
-              {outs.map((p) => {
-                const pl = playerById(p.id)!;
-                return (
-                  <tr key={p.id} className={`clickable ${out === p.id ? 'called' : ''}`} onClick={() => setOut(p.id)}>
-                    <td><PosPill p={{ position: pl.position, slot: p.slot }} /></td>
-                    <td>{pl.name}</td>
-                    <td className="num">{p.cond.toFixed(0)}%</td>
-                    <td style={{ width: 60 }}><Bar value={p.cond} kind="cond" /></td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          <div className="muted" style={{ fontSize: '.85rem', marginTop: 8 }}>Entra</div>
-          <table>
-            <tbody>
-              {side.bench.map((b) => {
-                const pl = playerById(b.id)!;
-                return (
-                  <tr key={b.id} className={`clickable ${inn === b.id ? 'called' : ''}`} onClick={() => setInn(b.id)}>
-                    <td><PosPill p={pl} /></td>
-                    <td>{pl.name}</td>
-                    <td className="num"><b>{Math.round(overall(pl))}</b></td>
-                    <td className="num">{b.cond.toFixed(0)}%</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          <button style={{ marginTop: 8 }} disabled={busy || !out || !inn || side.subsLeft <= 0} onClick={() => { onSub(out, inn); setOut(''); setInn(''); }}>
-            Confirmar substituição
-          </button>
-        </div>
-        <div>
-          <h3>Tática</h3>
-          <div className="opts" style={{ marginBottom: 10 }}>
-            {FORMATIONS.map((f) => (
-              <button key={f} className={tac.formation === f ? 'active' : ''} onClick={() => setTac({ ...tac, formation: f })}>{f}</button>
-            ))}
-          </div>
-          {([['pressing', 'Pressão'], ['lineHeight', 'Linha'], ['tempo', 'Ritmo']] as const).map(([k, label]) => (
-            <div key={k} className="slider">
-              <span>{label}</span>
-              <input type="range" min={0} max={100} value={Math.round(tac[k] * 100)} onChange={(e) => setTac({ ...tac, [k]: Number(e.target.value) / 100 })} />
-              <span className="muted">{Math.round(tac[k] * 100)}%</span>
-            </div>
-          ))}
-          <button style={{ marginTop: 8 }} disabled={busy || !dirty} onClick={() => onTactics(tac)}>Aplicar tática</button>
         </div>
       </div>
+      {quickOut && (
+        <QuickSub
+          state={m.state}
+          userSide={userSide}
+          outId={quickOut}
+          busy={busy}
+          onClose={() => {
+            setQuickOut(null);
+            m.paused = false;
+            render();
+          }}
+          onConfirm={(inId) => {
+            const outId = quickOut;
+            setQuickOut(null);
+            void call(() => engine.call('matchCommand', { cmd: { kind: 'sub', side: userSide, outId, inId } })).then(() => {
+              m.paused = false;
+              render();
+            });
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 import worldJson from '../../data/world.json';
-import { MatchSimulator, simulateMatch, type LiveState, type TeamSetup } from './match';
+import { MatchSimulator, simulateMatch, type LiveState, type MatchCommand, type TeamSetup } from './match';
 import {
   buildSetup,
   createTournament,
@@ -14,7 +14,7 @@ import {
   type RoundOutcome,
   type Tournament,
 } from './tournament';
-import type { Lineup, MatchEvent, MatchReport, Tactics, World } from './types';
+import type { Lineup, MatchEvent, MatchReport, World } from './types';
 
 /**
  * Worker do motor: toda simulação roda aqui, fora da thread da interface.
@@ -34,8 +34,8 @@ export interface Requests {
   /** Simula até o minuto indicado e devolve os eventos novos e o estado. */
   matchAdvance: { until: number };
   matchFinish: Record<string, never>;
-  matchSubstitute: { side: 0 | 1; outId: string; inId: string };
-  matchTactics: { side: 0 | 1; tactics: Tactics };
+  /** Qualquer comando do usuário (troca, tática, grito, conversa); entra no log da partida. */
+  matchCommand: { cmd: MatchCommand };
 }
 
 export interface MatchDelta {
@@ -56,8 +56,7 @@ export interface Responses {
   matchStart: MatchDelta & { fixture: Fixture; userSide: 0 | 1; seed: number };
   matchAdvance: MatchDelta;
   matchFinish: MatchDelta;
-  matchSubstitute: MatchDelta;
-  matchTactics: MatchDelta;
+  matchCommand: MatchDelta;
 }
 
 export type RequestType = keyof Requests;
@@ -113,13 +112,9 @@ const handlers: { [K in RequestType]: (p: Requests[K]) => Responses[K] } = {
     session?.sim.playToEnd();
     return delta(true);
   },
-  matchSubstitute: ({ side, outId, inId }) => {
-    const ok = session?.sim.substitute(side, outId, inId) ?? false;
+  matchCommand: ({ cmd }) => {
+    const ok = session?.sim.execute(cmd) ?? false;
     return { ...delta(), ok };
-  },
-  matchTactics: ({ side, tactics }) => {
-    session?.sim.setTactics(side, tactics);
-    return delta();
   },
 };
 

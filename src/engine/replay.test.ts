@@ -22,7 +22,7 @@ describe('motor passo a passo', () => {
     for (let seed = 1; seed <= 20; seed++) {
       const run = (tactics?: Tactics) => {
         const sim = new MatchSimulator([setup('BRA-1970', false), setup('GER-1980', true)], { seed });
-        sim.playUntil(60);
+        sim.playThrough(60);
         const cut = sim.clockExact;
         if (tactics) sim.setTactics(0, tactics);
         sim.playToEnd();
@@ -42,7 +42,7 @@ describe('motor passo a passo', () => {
     for (let seed = 0; seed < n; seed++) {
       const run = (tactics: Tactics) => {
         const sim = new MatchSimulator([setup('BRA-1970', false), setup('GER-1980', true)], { seed, detail: 'summary' });
-        sim.playUntil(60);
+        sim.playThrough(60);
         sim.setTactics(0, tactics);
         return sim.playToEnd();
       };
@@ -62,15 +62,15 @@ describe('log de comandos e replay', () => {
     for (let seed = 0; seed < 25; seed++) {
       const opts = { seed, knockout: true, detail: 'full' as const };
       const live = new MatchSimulator([setup('BRA-1970', false), setup('GER-1980', true)], opts);
-      live.playUntil(10.3);
+      live.playThrough(10.3);
       live.setTactics(0, ATTACK);
-      live.playUntil(37.7);
+      live.playThrough(37.7);
       const field = live.onPitch(0).filter((p) => p.position !== 'GK');
       const bench = live.benchPlayers(0).filter((p) => p.position !== 'GK');
       live.substitute(0, field[2]!.id, bench[0]!.id);
-      live.playUntil(61);
+      live.playThrough(61);
       live.setTactics(0, PARK);
-      live.playUntil(88.2);
+      live.playThrough(88.2);
       live.substitute(0, field[3]!.id, bench[1]!.id);
       const original = live.playToEnd();
       expect(live.commands.length).toBeGreaterThanOrEqual(4);
@@ -82,7 +82,7 @@ describe('log de comandos e replay', () => {
 
   it('comandos inválidos não entram no log', () => {
     const sim = new MatchSimulator([setup('BRA-1970', false), setup('GER-1980', true)], { seed: 4 });
-    sim.playUntil(20);
+    sim.playThrough(20);
     const bench = sim.benchPlayers(0);
     expect(sim.substitute(0, 'inexistente', bench[0]!.id)).toBe(false);
     expect(sim.commands).toHaveLength(0);
@@ -101,9 +101,9 @@ describe('log de comandos e replay', () => {
     const record = startRecord(t, fixture, setups);
     const sim = new MatchSimulator(setups, { seed: fixtureSeed(t, fixture), knockout: false, detail: 'full' });
     const side = record.userSide;
-    sim.playUntil(33.3);
+    sim.playThrough(33.3);
     sim.setTactics(side, ATTACK);
-    sim.playUntil(70);
+    sim.playThrough(70);
     const field = sim.onPitch(side).filter((p) => p.position !== 'GK');
     sim.substitute(side, field[0]!.id, sim.benchPlayers(side).filter((p) => p.position !== 'GK')[0]!.id);
     const original = sim.playToEnd();

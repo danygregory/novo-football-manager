@@ -57,9 +57,25 @@ export interface MatchOptions {
 export const MAX_SUBS = 5;
 
 /** Comandos do usuário durante a partida. A IA usa os mesmos efeitos, mas não os registra (são determinísticos). */
+export type Shout = 'press' | 'drop' | 'long' | 'short';
+export type TalkTone = 'motivate' | 'demand' | 'calm';
+
+/** Duração e recarga (minutos de jogo) dos gritos táticos. */
+export const SHOUT_MINUTES = 10;
+
 export type MatchCommand =
   | { kind: 'sub'; side: 0 | 1; outId: string; inId: string }
-  | { kind: 'tactics'; side: 0 | 1; tactics: Tactics };
+  | { kind: 'tactics'; side: 0 | 1; tactics: Tactics }
+  | { kind: 'shout'; side: 0 | 1; shout: Shout }
+  | { kind: 'talk'; side: 0 | 1; tone: TalkTone };
+
+/** Modificadores de cada grito sobre a tática-base (somados e limitados a 0..1). */
+const SHOUT_FX: Record<Shout, { pressing: number; lineHeight: number; tempo: number; longMult: number; prec: number }> = {
+  press: { pressing: 0.4, lineHeight: 0.1, tempo: 0.1, longMult: 1, prec: 0 },
+  drop: { pressing: -0.2, lineHeight: -0.35, tempo: -0.1, longMult: 1, prec: 0 },
+  long: { pressing: 0, lineHeight: 0.05, tempo: 0.15, longMult: 2.2, prec: -0.03 },
+  short: { pressing: 0, lineHeight: 0, tempo: -0.2, longMult: 0.3, prec: 0.06 },
+};
 
 /** Comando + relógio exato (minutos, ponto flutuante) em que foi aplicado. Seed + lista = mesma partida. */
 export interface LoggedCommand {
@@ -68,6 +84,13 @@ export interface LoggedCommand {
 }
 
 export interface LiveSide {
+  /** Grito ativo (até o minuto `until`) e minuto em que a recarga acaba. */
+  shout?: { kind: Shout; until: number };
+  cooldownUntil: number;
+  /** Já houve conversa de vestiário. */
+  talked: boolean;
+  /** Moral atual (multiplica a força dos setores). */
+  morale: number;
   onPitch: { id: string; slot: Slot; cond: number }[];
   bench: { id: string; cond: number }[];
   subsLeft: number;
@@ -83,6 +106,11 @@ export interface LiveState {
   finished: boolean;
   extraTime: boolean;
   sides: [LiveSide, LiveSide];
+  stats: [TeamMatchStats, TeamMatchStats];
+  /** Nota atual (6 + lances) dos que já jogaram. */
+  ratings: Record<string, number>;
+  /** Pressão dos últimos 10 minutos: fatia do time 0 (0..1). */
+  momentum: number;
 }
 
 type Side = 0 | 1;
@@ -117,6 +145,21 @@ interface SideState {
   dirty: boolean;
   aiMode: 'base' | 'attack' | 'defend';
   baseTactics: Tactics;
+  shout?: { kind: Shout; until: number };
+  cooldownUntil: number;
+  morale: number;
+  talked: boolean;
+  calm: boolean;
+  /** Tática efetiva sem grito (cache; zera quando a tática muda). */
+  fxBase?: Fx;
+}
+
+interface Fx {
+  pressing: number;
+  lineHeight: number;
+  tempo: number;
+  longMult: number;
+  prec: number;
 }
 
 /** Quanto cada slot pesa em cada setor. */
@@ -178,6 +221,9 @@ export class MatchSimulator {
   private starters: [string[], string[]];
   private seed: number;
   private log: LoggedCommand[] = [];
+  /** Janela de pressão (últimos 10 min) para o painel ao vivo. */
+  private momentumLog: { t: number; side: Side; w: number }[] = [];
+  private stopAtBreak = false;
   /** Fator do ambiente de gols da era: divide-se entre mais posses e chances melhores. */
   private eraFactor = 1;
 
@@ -228,6 +274,10 @@ export class MatchSimulator {
       sectors: { def: 0, mid: 0, att: 0, speed: 0, gk: 0 },
       dirty: true,
       aiMode: 'base',
+      cooldownUntil: 0,
+      morale: 0,
+      talked: false,
+      calm: false,
     };
   }
 
@@ -257,6 +307,10 @@ export class MatchSimulator {
         bench: s.players.filter((x) => !x.onPitch && !x.played).map((x) => ({ id: x.p.id, cond: Math.round(x.cond * 10) / 10 })),
         subsLeft: MAX_SUBS - s.subs,
         tactics: { ...s.tactics },
+        shout: s.shout && s.shout.until > this.clock ? { ...s.shout } : undefined,
+        cooldownUntil: s.cooldownUntil,
+        talked: s.talked,
+        morale: s.morale,
       };
     };
     return {
@@ -267,6 +321,9 @@ export class MatchSimulator {
       finished: this.done,
       extraTime: this.extraTimeStarted,
       sides: [side(0), side(1)],
+      stats: this.statsOf(),
+      ratings: this.ratingsNow(false),
+      momentum: this.momentum(),
     };
   }
   onPitch(side: Side): Player[] {
@@ -300,10 +357,11 @@ export class MatchSimulator {
   execute(cmd: MatchCommand): boolean {
     let ok = false;
     if (cmd.kind === 'sub') ok = this.doSubstitute(cmd.side, cmd.outId, cmd.inId);
-    else {
+    else if (cmd.kind === 'tactics') {
       this.doSetTactics(cmd.side, cmd.tactics);
       ok = true;
-    }
+    } else if (cmd.kind === 'shout') ok = this.doShout(cmd.side, cmd.shout);
+    else ok = this.doTalk(cmd.side, cmd.tone);
     if (ok) this.log.push({ at: this.clock, cmd });
     return ok;
   }
@@ -314,6 +372,63 @@ export class MatchSimulator {
 
   setTactics(side: Side, tactics: Tactics): void {
     this.execute({ kind: 'tactics', side, tactics });
+  }
+
+  /** Tática efetiva: a base mais o grito ativo. */
+  private fx(side: Side): Fx {
+    const s = this.sides[side];
+    const active = s.shout !== undefined && s.shout.until > this.clock;
+    if (!active && s.fxBase) return s.fxBase;
+    const t = s.tactics;
+    const f = active ? SHOUT_FX[(s.shout as { kind: Shout }).kind] : undefined;
+    const c = (v: number) => Math.max(0, Math.min(1, v));
+    const out: Fx = {
+      pressing: c(t.pressing + (f?.pressing ?? 0)),
+      lineHeight: c(t.lineHeight + (f?.lineHeight ?? 0)),
+      tempo: c(t.tempo + (f?.tempo ?? 0)),
+      longMult: f?.longMult ?? 1,
+      prec: f?.prec ?? 0,
+    };
+    if (!active) s.fxBase = out;
+    return out;
+  }
+
+  /** Grito à beira do campo: vale por 10 minutos e depois exige 10 de recarga. */
+  private doShout(side: Side, shout: Shout): boolean {
+    const s = this.sides[side];
+    if (this.done || this.clock < s.cooldownUntil || (s.shout && s.shout.until > this.clock)) return false;
+    s.shout = { kind: shout, until: this.clock + SHOUT_MINUTES };
+    s.cooldownUntil = this.clock + 2 * SHOUT_MINUTES;
+    const label = { press: 'Pressionar!', drop: 'Recuar!', long: 'Bola longa!', short: 'Toque curto!' }[shout];
+    this.emit('tactic', side, this.ball.zone, { text: `Grito do técnico (${s.setup.name}): ${label}` });
+    return true;
+  }
+
+  /** Conversa de vestiário no intervalo (uma vez por time). O efeito tem risco e usa o sorteio da partida. */
+  private doTalk(side: Side, tone: TalkTone): boolean {
+    const s = this.sides[side];
+    if (this.done || s.talked || !this.halftimeDone || this.clock > 52) return false;
+    s.talked = true;
+    const mine = this.score[side];
+    const theirs = this.score[other(side)];
+    let text: string;
+    if (tone === 'motivate') {
+      const good = this.rng.chance(0.75);
+      s.morale += good ? 0.03 : -0.015;
+      text = good ? 'o time volta inspirado' : 'o discurso soa vazio e o time volta apático';
+    } else if (tone === 'demand') {
+      const pGood = mine < theirs ? 0.7 : mine === theirs ? 0.5 : 0.35;
+      const good = this.rng.chance(pGood);
+      s.morale += good ? 0.05 : -0.04;
+      text = good ? 'o time sente a cobrança e volta com sangue nos olhos' : 'a cobrança pesa e o time volta tenso';
+    } else {
+      const good = this.rng.chance(0.9);
+      s.morale += good ? 0.01 : 0;
+      s.calm = true;
+      text = 'o time volta concentrado e disciplinado';
+    }
+    this.emit('tactic', side, this.ball.zone, { text: `Vestiário (${s.setup.name}): ${text}.` });
+    return true;
   }
 
   private doSubstitute(side: Side, outId: string, inId: string): boolean {
@@ -340,6 +455,7 @@ export class MatchSimulator {
     const s = this.sides[side];
     const changedFormation = tactics.formation !== s.tactics.formation;
     s.tactics = { ...tactics };
+    s.fxBase = undefined;
     if (changedFormation) {
       const onField = s.players.filter((x) => x.onPitch);
       const ids = assignSlots(
@@ -363,21 +479,44 @@ export class MatchSimulator {
 
   /** Simula até o relógio chegar ao minuto indicado (ou ao fim do jogo). */
   playUntil(minute: number): void {
-    while (!this.done && this.clock < minute) this.advance(minute);
+    while (!this.done && this.clock < minute) {
+      this.advance(minute);
+      if (this.stopAtBreak) {
+        // o intervalo é um ponto de parada: o usuário decide antes do 2º tempo
+        this.stopAtBreak = false;
+        break;
+      }
+    }
+  }
+
+  /** Como `playUntil`, mas atravessa o intervalo sem parar (testes e simulações sem interface). */
+  playThrough(minute: number): void {
+    while (!this.done && this.clock < minute) this.playUntil(minute);
   }
 
   playToEnd(): MatchReport {
-    while (!this.done) this.advance(Infinity);
+    while (!this.done) {
+      this.advance(Infinity);
+      this.stopAtBreak = false;
+    }
     return this.report();
+  }
+
+  /** O jogo parou no intervalo (aguardando a volta do 2º tempo). */
+  private doHalftime(): void {
+    this.halftimeDone = true;
+    this.emit('halftime', this.ball.team, 'MID', { text: `Fim do primeiro tempo: ${this.scoreText()}.` });
+    this.ball = { team: other(this.ball.team), zone: 'MID', mode: 'build' };
+    for (const side of [0, 1] as Side[]) {
+      if (!this.sides[side].setup.ai) continue;
+      const diff = this.score[side] - this.score[other(side)];
+      this.doTalk(side, diff < 0 ? 'demand' : diff > 0 ? 'calm' : 'motivate');
+    }
+    this.stopAtBreak = true;
   }
 
   private advance(limit: number): void {
     const clockBefore = this.clock;
-    if (!this.halftimeDone && this.clock >= 45) {
-      this.halftimeDone = true;
-      this.emit('halftime', this.ball.team, 'MID', { text: `Fim do primeiro tempo: ${this.scoreText()}.` });
-      this.ball = { team: other(this.ball.team), zone: 'MID', mode: 'build' };
-    }
     if (this.clock >= this.maxClock) {
       if (this.knockout && this.score[0] === this.score[1] && !this.extraTimeStarted) {
         this.extraTimeStarted = true;
@@ -396,6 +535,7 @@ export class MatchSimulator {
     }
     this.step();
     if (this.clock === clockBefore) this.clock += 0.01; // salvaguarda
+    if (!this.halftimeDone && this.clock >= 45) this.doHalftime();
     if (this.clock > limit && limit !== Infinity) return;
   }
 
@@ -405,7 +545,8 @@ export class MatchSimulator {
       for (const x of s.players) {
         if (!x.onPitch) continue;
         const gk = x.slot === 'GK' ? 0.25 : 1;
-        const loss = (f.base + f.press * s.tactics.pressing + f.tempo * s.tactics.tempo + f.line * s.tactics.lineHeight) * (1.3 - x.p.attrs.fisico / 150) * gk;
+        const e = this.fx(this.sides[0] === s ? 0 : 1);
+        const loss = (f.base + f.press * e.pressing + f.tempo * e.tempo + f.line * e.lineHeight) * (1.3 - x.p.attrs.fisico / 150) * gk;
         x.cond = Math.max(0, x.cond - loss);
       }
       s.dirty = true;
@@ -422,6 +563,19 @@ export class MatchSimulator {
     } else if (minute >= 80 && diff > 0 && s.aiMode !== 'defend') {
       s.aiMode = 'defend';
       this.doSetTactics(side, { ...s.tactics, pressing: 0.3, lineHeight: 0.2, tempo: 0.3 });
+    }
+    // gritos: pressionar/bola longa quando perde, recuar quando vence
+    if (s.shout === undefined || s.shout.until <= this.clock) {
+      if (this.clock >= s.cooldownUntil) {
+        if (diff < 0 && minute >= 55) this.doShout(side, minute >= 75 ? 'long' : 'press');
+        else if (diff > 0 && minute >= 70) this.doShout(side, 'drop');
+      }
+    }
+    // formação: abre o jogo quando precisa do gol, fecha quando defende o placar
+    if (minute === 60 && diff < 0 && (s.tactics.formation === '5-4-1' || s.tactics.formation === '4-4-2')) {
+      this.doSetTactics(side, { ...s.tactics, formation: '4-3-3' });
+    } else if (minute === 80 && diff > 0 && s.tactics.formation !== '5-4-1') {
+      this.doSetTactics(side, { ...s.tactics, formation: '5-4-1' });
     }
     const subMinutes = [58, 66, 74, 82, 100, 108];
     if (subMinutes.includes(minute) && s.subs < MAX_SUBS && (s.subs < 3 || minute >= 74)) {
@@ -469,7 +623,8 @@ export class MatchSimulator {
       if (w <= 0) return 1;
       return ((sums[i] as number) / w) * Math.pow(w / (REF_WEIGHTS[i] as number), 0.5);
     };
-    s.sectors = { def: sector(0), mid: sector(1), att: sector(2), speed: speedW > 0 ? speedSum / speedW : 50, gk };
+    const mor = 1 + s.morale;
+    s.sectors = { def: sector(0) * mor, mid: sector(1) * mor, att: sector(2) * mor, speed: speedW > 0 ? speedSum / speedW : 50, gk };
     s.dirty = false;
     return s.sectors;
   }
@@ -489,19 +644,23 @@ export class MatchSimulator {
     const d = this.sides[dSide];
     const sa = this.sectorsOf(aSide);
     const sd = this.sectorsOf(dSide);
-    const tempoAvg = (a.tactics.tempo + d.tactics.tempo) / 2;
+    const fa = this.fx(aSide);
+    const fd = this.fx(dSide);
+    const tempoAvg = (fa.tempo + fd.tempo) / 2;
     const dur = (this.params.stepMinutes / this.eraFactor / (0.8 + 0.4 * tempoAvg)) * (this.ball.mode === 'build' ? 1 : 0.6);
     this.clock += dur;
     a.stats.possTime += dur;
+    this.momentumLog.push({ t: this.clock, side: aSide, w: dur * (this.ball.zone === 'ATT' ? 2 : this.ball.zone === 'MID' ? 1 : 0.5) });
+    while (this.momentumLog.length && (this.momentumLog[0] as { t: number }).t < this.clock - 10) this.momentumLog.shift();
 
     const zone = this.ball.zone;
-    const pressD = d.tactics.pressing;
-    const lineD = d.tactics.lineHeight;
-    const precision = 1 - 0.1 * (a.tactics.tempo - 0.5);
+    const pressD = fd.pressing;
+    const lineD = fd.lineHeight;
+    const precision = (1 - 0.1 * (fa.tempo - 0.5)) * (1 + fa.prec);
 
     // bola longa a partir da defesa
     if (zone === 'DEF' && this.ball.mode === 'build') {
-      const pLong = this.params.longBallBase * (0.5 + 1.0 * a.tactics.tempo) * (0.6 + 0.9 * lineD);
+      const pLong = this.params.longBallBase * (0.5 + 1.0 * fa.tempo) * fa.longMult * (0.6 + 0.9 * lineD);
       if (this.rng.chance(pLong)) {
         const A = sa.att * Math.pow(sa.speed / 65, 0.7);
         const B = sd.def * (1.1 - 0.4 * lineD);
@@ -525,13 +684,13 @@ export class MatchSimulator {
       B = sd.mid * (1 + 0.25 * (pressD - 0.5));
       next = 'MID';
     } else if (zone === 'MID') {
-      A = (0.6 * sa.mid + 0.4 * sa.att) * precision * (1 + this.params.tactics.attackLine * (a.tactics.lineHeight - 0.5));
+      A = (0.6 * sa.mid + 0.4 * sa.att) * precision * (1 + this.params.tactics.attackLine * (fa.lineHeight - 0.5));
       B = (0.5 * sd.mid + 0.5 * sd.def) * (1 + 0.2 * (pressD - 0.5)) * (1 + 0.1 * (lineD - 0.5));
       next = 'ATT';
     } else {
       next = 'BOX';
       if (this.ball.mode === 'build') {
-        A = sa.att * precision * (1 + this.params.tactics.attackTempo * (a.tactics.tempo - 0.5));
+        A = sa.att * precision * (1 + this.params.tactics.attackTempo * (fa.tempo - 0.5));
         B = sd.def * (1 + this.params.tactics.defLineCompact * (0.5 - lineD));
       } else {
         A = sa.att * Math.pow(sa.speed / 65, 0.7);
@@ -555,7 +714,7 @@ export class MatchSimulator {
     }
 
     // disputa perdida: falta ou perda de posse
-    const pFoul = this.params.foulBase * (0.7 + 0.6 * pressD) * (0.8 + 0.4 * d.tactics.tempo);
+    const pFoul = this.params.foulBase * (0.7 + 0.6 * pressD) * (0.8 + 0.4 * fd.tempo) * (d.calm ? 0.7 : 1);
     if (this.rng.chance(pFoul)) {
       this.foul(dSide, aSide, zone, next === 'BOX');
       return;
@@ -582,16 +741,14 @@ export class MatchSimulator {
   private turnover(loser: Side, from: FieldZone, allowCounter: boolean): void {
     const winner = other(loser);
     const mirrored: FieldZone = from === 'DEF' ? 'ATT' : from === 'ATT' ? 'DEF' : 'MID';
-    const L = this.sides[loser];
-    const W = this.sides[winner];
     let mode: Mode = 'build';
     let zone: FieldZone = mirrored;
     if (allowCounter && from !== 'DEF') {
       const pCounter =
         this.params.counterBase *
-        (0.6 + 1.2 * L.tactics.lineHeight + 0.5 * L.tactics.pressing) *
-        (0.6 + 0.8 * W.tactics.tempo) *
-        (1 - this.params.tactics.pressRecover + 2 * this.params.tactics.pressRecover * W.tactics.pressing) *
+        (0.6 + 1.2 * this.fx(loser).lineHeight + 0.5 * this.fx(loser).pressing) *
+        (0.6 + 0.8 * this.fx(winner).tempo) *
+        (1 - this.params.tactics.pressRecover + 2 * this.params.tactics.pressRecover * this.fx(winner).pressing) *
         clamp(this.sectorsOf(winner).speed / 65, 0.7, 1.4) *
         (from === 'ATT' ? 0.5 : 1.0);
       if (this.rng.chance(pCounter)) {
@@ -618,7 +775,7 @@ export class MatchSimulator {
     // cartões
     if (this.rng.chance(this.params.redPerFoul)) {
       this.sendOff(fouler, culprit);
-    } else if (this.rng.chance(this.params.yellowPerFoul * (0.8 + 0.4 * F.tactics.pressing))) {
+    } else if (this.rng.chance(this.params.yellowPerFoul * (0.8 + 0.4 * this.fx(fouler).pressing) * (F.calm ? 0.6 : 1))) {
       culprit.yellows++;
       F.stats.yellows++;
       this.addRating(culprit, -0.3);
@@ -807,8 +964,18 @@ export class MatchSimulator {
 
   // ---------- relatório ----------
 
-  report(): MatchReport {
-    const stats = [0, 1].map((i): TeamMatchStats => {
+  private momentum(): number {
+    let a = 0;
+    let b = 0;
+    for (const m of this.momentumLog) {
+      if (m.side === 0) a += m.w;
+      else b += m.w;
+    }
+    return a + b > 0 ? a / (a + b) : 0.5;
+  }
+
+  private statsOf(): [TeamMatchStats, TeamMatchStats] {
+    return [0, 1].map((i): TeamMatchStats => {
       const s = this.sides[i as Side];
       const total = this.sides[0].stats.possTime + this.sides[1].stats.possTime;
       return {
@@ -822,22 +989,31 @@ export class MatchSimulator {
         offsides: s.stats.offsides,
       };
     }) as [TeamMatchStats, TeamMatchStats];
+  }
 
+  /** Notas: com `final`, inclui o bônus do resultado e de jogo sem sofrer gols. */
+  private ratingsNow(final: boolean): Record<string, number> {
     const ratings: Record<string, number> = {};
-    const finalCondition: Record<string, number> = {};
     for (const side of [0, 1] as Side[]) {
       const s = this.sides[side];
       const mine = this.score[side];
       const theirs = this.score[other(side)];
-      const resultBonus = mine > theirs ? 0.3 : mine < theirs ? -0.2 : 0;
+      const resultBonus = final ? (mine > theirs ? 0.3 : mine < theirs ? -0.2 : 0) : 0;
       for (const x of s.players) {
-        finalCondition[x.p.id] = Math.round(x.cond * 10) / 10;
         if (!x.played) continue;
         let r = x.rating + resultBonus;
-        if (theirs === 0 && (x.slot === 'GK' || x.slot === 'CB' || x.slot === 'LB' || x.slot === 'RB' || x.slot === 'WB')) r += 0.4;
+        if (final && theirs === 0 && (x.slot === 'GK' || x.slot === 'CB' || x.slot === 'LB' || x.slot === 'RB' || x.slot === 'WB')) r += 0.4;
         ratings[x.p.id] = Math.round(clamp(r, 3, 10) * 10) / 10;
       }
     }
+    return ratings;
+  }
+
+  report(): MatchReport {
+    const stats = this.statsOf();
+    const ratings = this.ratingsNow(true);
+    const finalCondition: Record<string, number> = {};
+    for (const s of this.sides) for (const x of s.players) finalCondition[x.p.id] = Math.round(x.cond * 10) / 10;
 
     return {
       seed: this.seed,
@@ -862,7 +1038,8 @@ export class MatchSimulator {
 export function replayMatch(setups: [TeamSetup, TeamSetup], opts: MatchOptions, commands: readonly LoggedCommand[]): MatchReport {
   const sim = new MatchSimulator(setups, opts);
   for (const c of commands) {
-    sim.playUntil(c.at);
+    // o intervalo interrompe o playUntil; repete até o relógio exato do comando
+    while (sim.clockExact < c.at && !sim.finished) sim.playUntil(c.at);
     sim.execute(c.cmd);
   }
   return sim.playToEnd();

@@ -58,7 +58,7 @@ describe('determinismo', () => {
   it('simular em pedaços dá o mesmo resultado que de uma vez', () => {
     const whole = simulateMatch([A(), B()], { seed: 77 });
     const sim = new MatchSimulator([A(), B()], { seed: 77 });
-    for (let m = 10; m <= 90; m += 10) sim.playUntil(m);
+    for (let m = 10; m <= 90; m += 10) sim.playThrough(m);
     expect(sim.playToEnd()).toEqual(whole);
   });
 
@@ -121,7 +121,7 @@ describe('integridade do relatório', () => {
 describe('tática, fadiga e substituições', () => {
   it('permite até 5 substituições e valida os jogadores', () => {
     const sim = new MatchSimulator([setup('BRA-1970', false), B()], { seed: 9 });
-    sim.playUntil(30);
+    sim.playThrough(30);
     const field = sim.onPitch(0).filter((p) => p.position !== 'GK');
     const bench = sim.benchPlayers(0);
     expect(sim.substitute(0, field[0]!.id, bench[0]!.id)).toBe(true);
@@ -152,7 +152,7 @@ describe('tática, fadiga e substituições', () => {
 
   it('setTactics durante o jogo troca a formação sem quebrar', () => {
     const sim = new MatchSimulator([setup('BRA-1970', false), B()], { seed: 11 });
-    sim.playUntil(20);
+    sim.playThrough(20);
     sim.setTactics(0, { formation: '5-4-1', pressing: 0.3, lineHeight: 0.2, tempo: 0.4 });
     const r = sim.playToEnd();
     expect(r.events.some((e) => e.type === 'tactic')).toBe(true);
@@ -181,7 +181,7 @@ describe('tática, fadiga e substituições', () => {
 describe('partida ao vivo', () => {
   it('eventos têm relógio contínuo crescente e liveState reflete o jogo', () => {
     const sim = new MatchSimulator([setup('BRA-1970', false), B()], { seed: 21 });
-    sim.playUntil(15);
+    sim.playThrough(15);
     const st = sim.liveState();
     expect(st.clock).toBeGreaterThanOrEqual(15);
     expect(st.clock).toBeLessThan(16);

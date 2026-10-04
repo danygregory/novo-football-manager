@@ -150,3 +150,15 @@ tr.me td { color: var(--accent); font-weight: 650; }
 .feed li.big { font-size: 1.05rem; font-weight: 650; color: var(--text); }
 .feed li.mvp { font-size: 1.15rem; }
 @media (prefers-reduced-motion: reduce) { .shake, .score .bump, .goal-banner { animation: none; } }
+
+.side-col { display: grid; gap: 12px; align-content: start; }
+.side-col .feed .timeline { max-height: 300px; }
+.shouts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0 4px; font-size: .9rem; }
+.shouts button { padding: .3em .7em; }
+.shouts button.active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 650; }
+.blink td { animation: blink 1.1s ease-in-out infinite; }
+@keyframes blink { 50% { background: rgba(239,106,91,.25); } }
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: grid; place-items: center; z-index: 20; }
+.modal-box { width: min(480px, 92vw); }
+.halftime { margin-top: 12px; border-color: var(--accent); }
+@media (prefers-reduced-motion: reduce) { .blink td { animation: none; background: rgba(239,106,91,.2); } }
