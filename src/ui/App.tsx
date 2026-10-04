@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { STAGE_LABEL, userFixture, type Fixture, type MatchRecord, type Tournament } from '../engine/tournament';
 import type { Lineup, MatchReport } from '../engine/types';
 import { Kit } from './components/common';
+import { DEFAULT_SPEED, isSpeed, type Speed } from './speed';
 import { engine } from './engineClient';
 import { Cup } from './screens/Cup';
 import { CupEnd } from './screens/CupEnd';
@@ -23,16 +24,23 @@ interface Game {
   lineup?: Lineup;
   tournament?: Tournament;
   last?: { report: MatchReport; fixture: Fixture };
-  live?: { start: LiveStart; speed: 1 | 4 };
+  live?: { start: LiveStart; speed: Speed };
 }
 
 const FRESH: Game = { screen: 'home', called: [] };
 
 const SETTINGS_KEY = 'novo-fm-settings';
 
-function loadSettings(): { reduceMotion?: boolean } {
+interface Settings {
+  reduceMotion?: boolean;
+  /** Última velocidade escolhida (2x ou 4x). */
+  speed?: Speed;
+}
+
+function loadSettings(): Settings {
   try {
-    return JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') as { reduceMotion?: boolean };
+    const s = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') as Settings;
+    return { ...s, speed: isSpeed(s.speed) ? s.speed : undefined };
   } catch {
     return {};
   }
@@ -43,14 +51,18 @@ export function App() {
   const [settings, setSettings] = useState(loadSettings);
   const systemReduced = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const reduced = settings.reduceMotion ?? systemReduced;
-  const toggleReduced = () => {
-    const next = { ...settings, reduceMotion: !reduced };
+  const saveSettings = (next: Settings) => {
     setSettings(next);
     try {
       localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
     } catch {
       /* sem armazenamento: a escolha vale só nesta sessão */
     }
+  };
+  const toggleReduced = () => saveSettings({ ...settings, reduceMotion: !reduced });
+  const lastSpeed: Speed = settings.speed ?? DEFAULT_SPEED;
+  const rememberSpeed = (s: Speed) => {
+    if (s !== settings.speed) saveSettings({ ...settings, speed: s });
   };
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
@@ -84,8 +96,9 @@ export function App() {
       setG((prev) => ({ ...prev, tournament, last: { report, fixture }, screen: 'post' }));
     });
 
-  const startLive = (speed: 1 | 4) =>
+  const startLive = (speed: Speed) =>
     guarded(async () => {
+      rememberSpeed(speed);
       const start = await engine.call('matchStart', { tournament: g.tournament as Tournament });
       setG((prev) => ({ ...prev, live: { start, speed }, screen: 'live' }));
     });
@@ -180,11 +193,11 @@ export function App() {
       )}
 
       {g.screen === 'match' && t && userFixture(t, world) && (
-        <MatchIntro t={t} fixture={userFixture(t, world) as Fixture} busy={busy} onInstant={playInstant} onWatch={startLive} onBack={() => go({ screen: 'cup' })} />
+        <MatchIntro t={t} fixture={userFixture(t, world) as Fixture} busy={busy} onInstant={playInstant} onWatch={startLive} lastSpeed={lastSpeed} onBack={() => go({ screen: 'cup' })} />
       )}
 
       {g.screen === 'live' && g.live && (
-        <LiveMatch key={g.live.start.fixture.id} start={g.live.start} speed0={g.live.speed} reduced={reduced} onFinished={(r, rec) => void finishLive(r, rec)} onBack={() => void exitLive()} />
+        <LiveMatch key={g.live.start.fixture.id} start={g.live.start} speed0={g.live.speed} reduced={reduced} onSpeed={rememberSpeed} onFinished={(r, rec) => void finishLive(r, rec)} onBack={() => void exitLive()} />
       )}
 
       {g.screen === 'post' && g.last && t && (

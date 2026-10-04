@@ -17,9 +17,7 @@ export interface LiveStart extends MatchDelta {
   seed: number;
 }
 
-/** Segundos de coreografia por minuto de jogo (em 4x o mesmo relógio roda com 4x mais passos fixos). */
-const SEC_PER_MIN = 1.6;
-type Speed = 1 | 4;
+import { TAU_PER_MIN as SEC_PER_MIN, tauRate, type Speed } from '../speed';
 
 const FEED_TYPES = new Set<MatchEvent['type']>(['kickoff', 'goal', 'save', 'hard-save', 'miss', 'big-miss', 'post', 'offside', 'injury', 'foul', 'yellow', 'red', 'sub', 'tactic', 'halftime', 'fulltime', 'penalty-shootout']);
 const DRAMATIC = new Set<MatchEvent['type']>(['goal', 'hard-save', 'big-miss', 'post']);
@@ -76,7 +74,7 @@ interface Model {
   decisionShown: boolean;
 }
 
-export function LiveMatch({ start, speed0, reduced, onFinished, onBack }: { start: LiveStart; speed0: Speed; reduced: boolean; onFinished: (report: MatchReport, record: MatchRecord) => void; onBack: () => void }) {
+export function LiveMatch({ start, speed0, reduced, onSpeed, onFinished, onBack }: { start: LiveStart; speed0: Speed; reduced: boolean; onSpeed: (s: Speed) => void; onFinished: (report: MatchReport, record: MatchRecord) => void; onBack: () => void }) {
   const { fixture, userSide } = start;
   const nations = [nationsById.get(fixture.home)!, nationsById.get(fixture.away)!] as const;
   const mine = nations[userSide];
@@ -335,8 +333,11 @@ export function LiveMatch({ start, speed0, reduced, onFinished, onBack }: { star
     let raf = 0;
     let last = performance.now();
     let lastRender = 0;
+    let lastTick = last;
     const frame = (now: number) => {
-      const dtReal = Math.min((now - last) / 1000, 0.25);
+      lastTick = now;
+      // aba em segundo plano: o navegador só dá ~1 tick por segundo, então o passo pode ser maior (os passos fixos da coreografia continuam fixos)
+      const dtReal = Math.min((now - last) / 1000, document.hidden ? 1.5 : 0.25);
       last = now;
       const m = model.current;
       if (m.replay) {
@@ -353,7 +354,7 @@ export function LiveMatch({ start, speed0, reduced, onFinished, onBack }: { star
       } else {
         const finishing = m.simFinished && m.buffer.length === 0 && !choreo.busy;
         if (!m.paused && !finishing) {
-          const dTau = dtReal * m.speed;
+          const dTau = dtReal * tauRate(m.speed);
           m.warp = rhythm();
           choreo.advance(dTau);
           m.displayClock += (dTau / SEC_PER_MIN) * m.warp;
@@ -378,10 +379,19 @@ export function LiveMatch({ start, speed0, reduced, onFinished, onBack }: { star
         lastRender = now;
         render();
       }
+      cancelAnimationFrame(raf);
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
-    return () => cancelAnimationFrame(raf);
+    // segurança: se o requestAnimationFrame parar (aba oculta, janela em segundo plano), este timer mantém a partida andando
+    const fallback = window.setInterval(() => {
+      const now = performance.now();
+      if (now - lastTick > 250) frame(now);
+    }, 200);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearInterval(fallback);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -522,8 +532,8 @@ export function LiveMatch({ start, speed0, reduced, onFinished, onBack }: { star
           <div className="ticker muted">{m.ticker}</div>
           <div className="row controls">
             <button onClick={togglePause} disabled={done || busy}>{m.paused ? '▶ Retomar' : '⏸ Pausar'}</button>
-            <button className={m.speed === 1 ? 'active' : ''} onClick={() => { m.speed = 1; render(); }}>1x</button>
-            <button className={m.speed === 4 ? 'active' : ''} onClick={() => { m.speed = 4; render(); }}>4x</button>
+            <button className={m.speed === 2 ? 'active' : ''} onClick={() => { m.speed = 2; onSpeed(2); render(); }}>2x</button>
+            <button className={m.speed === 4 ? 'active' : ''} onClick={() => { m.speed = 4; onSpeed(4); render(); }}>4x</button>
             <button onClick={instant} disabled={done || busy}>⏩ Instantâneo</button>
             <span className="spacer" />
             <button className={m.halftimeBanner ? 'primary' : ''} onClick={openPanel} disabled={done || busy || m.simFinished}>Substituir / Tática</button>

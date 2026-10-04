@@ -1,6 +1,6 @@
 # NOVO Football Manager — Mercado, Motor e Arquitetura
 
-Versão de 3 de outubro de 2026 · Dany Gregory
+Oct 2, 2026 · @Dany Gregory
 
 ## Sumário executivo
 
@@ -12,7 +12,7 @@ O risco também é claro: a ponta indie está lotada (7a0, BrowserFut, Openfoot 
 
 **Decisões-chave propostas**
 
-- Mundo inicial só com seleções internacionais fictícias, inspiradas em eras históricas, com força calculada a partir de resultados reais e jogadores com nomes gerados; clubes locais depois, pois exigem licenciamento. Editor local; nada de nomes reais hospedados por nós.
+- Mundo inicial só com seleções internacionais fictícias, inspiradas em eras históricas, com força calculada a partir de resultados reais e jogadores com nomes gerados; clubes locais depois, pois exigem licenciamento. Dois modos: seleção pronta ou time montado num draft por sorteio. Editor local; nada de nomes reais hospedados por nós.
 - Simulação no cliente; o MVP roda só no navegador (Chrome), e o app nas lojas vem depois. O servidor entra após o MVP, para login, backup e ligas multiplayer.
 - Motor determinístico em TypeScript, com seed, compartilhado entre cliente e servidor.
 - Sem loot boxes nem vantagem paga em campo, por produto e por exigência do ECA Digital.
@@ -40,12 +40,9 @@ Não confirmados em busca: Makefot, Legend Foot e L-FUT. Ficam fora da análise 
 
 O NOVO mira o quadrante que ninguém ocupa: a leveza do Brasfoot com a profundidade tática moderna, sem pay-to-win.
 
-Mapa de posicionamento (leveza × profundidade, leitura qualitativa):
+&#91;embedded content: mapa de posicionamento · leveza × profundidade\]
 
-- Profundo e pesado: Football Manager 26, Openfoot Manager.
-- Raso e pesado: Brasfoot, Elifoot.
-- Raso e leve: Top Eleven e OSM (pay-to-win), 7a0, BrowserFut.
-- Profundo e leve: vazio. É onde o NOVO mira.
+Leitura qualitativa, por zona: FM e Openfoot são profundos mas pesados; os leves são rasos ou pay-to-win.
 
 **Diferenciais que precisam estar visíveis no MVP**
 
@@ -55,7 +52,7 @@ Mapa de posicionamento (leveza × profundidade, leitura qualitativa):
 4. Monetização justa como argumento de marketing.
 5. Editor local e banco de dados compartilhável pela comunidade.
 
-**Funcionalidades a incorporar depois do MVP:** categorias de base por idade (Sub-15, Sub-17, Sub-20), modo dono de clube separado do modo treinador, clubes locais (após licenciamento), liga feminina e modo draft por era com elencos fictícios.
+**Funcionalidades a incorporar depois do MVP:** categorias de base por idade (Sub-15, Sub-17, Sub-20), modo dono de clube separado do modo treinador, clubes locais (após licenciamento) e liga feminina.
 
 ## Riscos legais e compliance
 
@@ -66,7 +63,7 @@ O maior risco regulatório é o ECA Digital, em vigor desde 17/03/2026: um manag
 | Risco | Base | Impacto | Mitigação |
 | --- | --- | --- | --- |
 | Loot boxes e design manipulativo | [Lei 15.211/2025 (ECA Digital)](https://www.poder360.com.br/poder-governo/eca-digital-entra-em-vigor-nesta-3a-feira-entenda-o-que-muda/), art. 20 | Multa de até 10% do faturamento, limitada a R$ 50 milhões, e possível suspensão ([fonte](https://tecnoblog.net/noticias/eca-digital-entra-em-vigor-para-proteger-menores-na-internet-veja-mudancas/)) | Nenhuma compra com resultado aleatório; sem mecânicas de pressão |
-| Chat entre usuários e verificação de idade | ECA Digital ([fonte](https://canaltech.com.br/games/lei-felca-estreia-causando-alvoroco-e-ja-mexe-com-lol-fortnite-e-gta/)) | Ligas multiplayer com interação podem cair na regra | Ligas sem chat livre no início; validar com jurídico antes de abrir interação |
+| Chat entre usuários e verificação de idade | ECA Digital ([fonte](https://canaltech.com.br/games/lei-felca-estreia-causando-alvoroco-e-ja-mexe-com-lol-fortnite-e-gta/)) | Ligas multiplayer com interação podem cair na regra | Ligas sem chat livre no MVP; validar com jurídico antes de abrir interação |
 | Nomes reais de clubes e atletas | Direito de imagem e marcas; o FM chegou a ser banido no Brasil em 2017 por licenciamento ([fonte](https://tribunademinas.com.br/colunas/maistendencias/?p=49965)) | Retirada das lojas e ação judicial | Seleções com nomes de países, sem escudos de federações nem nomes reais de jogadores; editor só local |
 | Patches da comunidade com nomes reais | Responsabilidade por conteúdo hospedado | Exposição se hospedarmos | Não hospedar nem indexar patches de terceiros |
 | Código GPLv3 (Openfoot Manager) | [Licença GPLv3](https://openapps.pro/apps/openfootmanager) | Copiar código obriga abrir todo o produto derivado | Estudar ideias, nunca copiar código |
@@ -82,8 +79,8 @@ Mantemos a base do Elifoot e do Brasfoot (simulação estocástica por eventos, 
 
 **1. Duelos por função logística, não por `A > rand(0, B)`.** A comparação linear satura: se o ataque for maior ou igual à defesa, a chance vira 100%, gerando goleadas e quase nenhuma zebra.
 
-```
-p = A^k / (A^k + B^k)
+```latex
+p = \frac{A^k}{A^k + B^k}
 ```
 
 O expoente k calibra o peso da diferença técnica entre os times.
@@ -96,11 +93,11 @@ O expoente k calibra o peso da diferença técnica entre os times.
 
 **5. Eventos atribuídos a jogadores.** Quem passou, quem chutou, quem falhou, ponderado por atributo e posição. Gera nota por partida e histórias.
 
-**6. Seed determinística.** Mesma seed + mesmas escalações = mesma partida. Serve para depuração, replay, anti-recarga e ligas online.
+**6. Seed determinística.** O motor avança passo a passo. Mesma seed + mesmo log de comandos do usuário (táticas, substituições, escolhas no draft e nos pênaltis) = mesma partida. Serve para depuração, replay, anti-recarga e ligas online.
 
-**7. Fadiga e mando.** Cansaço acumulado ao longo da temporada; vantagem de mando por clube e estádio (no MVP de seleções, campo neutro).
+**7. Fadiga e mando.** Cansaço acumulado ao longo da temporada; vantagem de mando por clube e estádio.
 
-**Metas de calibração** (simulação Monte Carlo com dezenas de milhares de jogos, comparada a dados reais):
+**Metas de calibração** (simulação Monte Carlo com dezenas de milhares de jogos, comparada a ligas reais):
 
 | Métrica | Alvo aproximado |
 | --- | --- |
@@ -109,7 +106,7 @@ O expoente k calibra o peso da diferença técnica entre os times.
 | Vitória do mandante | conforme a liga de referência |
 | Tempo por partida simulada | poucos milissegundos |
 
-Os alvos são aproximados e serão fixados com dados reais na fase de calibração.
+Os alvos são aproximados e serão fixados com dados reais de ligas na fase de calibração.
 
 ## Dados históricos das seleções
 
@@ -122,27 +119,33 @@ Força real, elenco fictício: resultados históricos definem quão forte é cad
 
 **Regras do mundo histórico**
 
-1. Seleções-era (ex.: "Brasil anos 70") com força derivada do Elo da década.
+1. Seleções-era (ex.: "Brasil anos 70") com força derivada do Elo da década; meta de pelo menos 150 seleções-era entre as décadas de 1930 e 2020, com mínimo de 15 jogos na década.
 2. Jogadores identificados por estilo ("ponta driblador", "camisa 10 cerebral", "líbero clássico"), não por nome real.
-3. Nomes gerados por nacionalidade, sem semelhança proposital com jogadores reais.
+3. Nomes gerados por nacionalidade, sem semelhança proposital com jogadores reais. Elencos gerados sob demanda a partir de uma seed fixa por seleção-era; o world.json guarda só dados das seleções.
 4. Licenças registradas em docs/DADOS.md.
+
+## Experiência de jogo do MVP
+
+Cada partida precisa ter tensão, gols celebrados e decisões do jogador que mudam o resultado. O que o MVP entrega:
+
+| Área | Como funciona |
+| --- | --- |
+| Seleção pronta | Escolho uma seleção-era (busca por década, continente e força) e convoco 23 do elenco |
+| Draft por sorteio | Defino nome, cores e formação; a cada rodada uma seleção-era é sorteada (mesma chance para todas) e escolho 1 jogador para uma posição vazia; 3 trocas de sorteio; 7 reservas sorteados depois; modo "Memória" esconde as notas |
+| Copa | 32 seleções em 8 grupos e mata-mata; recorte "todas as eras" ou uma década; adversários distribuídos em 4 potes por força |
+| Partida ao vivo | 22 jogadores como agentes independentes (velocidade, reação e função vindas dos atributos); bola em sequência de passes; ritmo que desacelera nas jogadas perigosas |
+| Gols e lances | Câmera lenta, rede balançando, faixa de gol e replay; trave, defesa difícil e impedimento com animação própria |
+| Decisões | Gritos táticos com custo e recarga, substituição rápida, intervalo com conversa de vestiário, até 3 momentos de decisão por partida |
+| Pênaltis | Tela própria em perspectiva 2D; escolho o canto ao cobrar e o lado do goleiro ao defender |
+| Velocidades | 2x (padrão), 4x e instantâneo |
+
+**Balanceamento do draft:** um robô que sempre escolhe o melhor jogador disponível deve ser campeão em menos de 40% das Copas simuladas. É isso que impede o draft de virar "pegar sempre os mais fortes".
 
 ## Arquitetura técnica
 
 A carreira solo roda inteira no aparelho do jogador; o servidor só cuida de login, backup e ligas multiplayer. É isso que permite volume grande com servidor barato.
 
-Visão geral (o MVP usa só a CDN e o cliente):
-
-- **CDN:** app estático e banco do mundo fictício versionado.
-- **Cliente (PWA no navegador ou app Capacitor):**
-  - Interface: React ou Svelte; PixiJS para o campo 2D; Three.js só em momentos 3D.
-  - Motor em Web Worker: TypeScript puro, determinístico, com seed; simula a carreira solo.
-  - Banco local: IndexedDB no MVP, depois SQLite WASM ou nativo; um arquivo por save; funciona offline.
-- **Servidor leve (Node + Fastify), após o MVP:**
-  - API: login e contas, backup de saves, ligas entre amigos.
-  - PostgreSQL: contas e ligas, resultados e seeds, índice dos saves.
-  - Fila de rodadas (pg-boss): roda as ligas em lote em horários fixos, usando o mesmo motor.
-- **Armazenamento de objetos (S3 ou R2):** saves compactados; o Postgres guarda o índice.
+&#91;embedded content: arquitetura · cliente, servidor e armazenamento\]
 
 O mesmo pacote do motor roda no Web Worker do cliente e na fila do servidor, o que garante resultados idênticos nas ligas.
 
@@ -164,7 +167,7 @@ O mesmo pacote do motor roda no Web Worker do cliente e na fila do servidor, o q
 
 ## Modelo de monetização
 
-A monetização é o argumento de marketing: nada que o jogador compre melhora o resultado em campo, e nada tem conteúdo aleatório. O MVP é gratuito e sem compras.
+A monetização é o argumento de marketing: nada que o jogador compre melhora o resultado em campo, e nada tem conteúdo aleatório.
 
 | Fonte de receita | O que entrega | Por que é segura |
 | --- | --- | --- |
@@ -179,17 +182,9 @@ Preço por canal: compras dentro dos apps passam pelo sistema de Apple e Google,
 
 ## Roadmap do MVP
 
-O primeiro passo é o motor calibrado: sem ele, todo o resto se apoia num resultado de partida não confiável. Cinco fases, cada uma liberada por um portão:
+O primeiro passo é o motor calibrado: sem ele, todo o resto se apoia num resultado de partida não confiável.
 
-1. **Fase 0 · Motor e calibração.** Motor TypeScript com modelo logístico, Markov por zonas e xG; script Monte Carlo comparando com dados reais.
-   - Portão: gols por jogo, empates e mando dentro dos alvos de calibração.
-2. **Fase 1 · Carreira solo offline.** Seleções-era com força histórica real e elencos fictícios; visualizador 2D com PixiJS; saves locais (IndexedDB, depois SQLite).
-   - Portão: uma temporada completa jogável do início ao fim.
-3. **Fase 2 · Beta aberto no navegador (Chrome).** Link aberto, sem cadastro, save local exportável; ajustes de UX para sessões curtas.
-   - Portão: parecer jurídico (ECA Digital) e feedback do beta.
-4. **Fase 3 · Ligas assíncronas entre amigos.** Fila de rodadas no servidor com o mesmo motor; ligas sem chat livre no início.
-   - Portão: custo de servidor por liga validado.
-5. **Fase 4 · Lojas (Capacitor).** Compras nativas, notificações e modo offline; submissão à App Store e ao Google Play.
+&#91;embedded content: roadmap do MVP · 5 fases e 4 portões\]
 
 As fases não têm datas ainda; os prazos dependem do tamanho do time e serão definidos ao fechar o escopo da Fase 1.
 
@@ -197,7 +192,7 @@ As fases não têm datas ainda; os prazos dependem do tamanho do time e serão d
 
 - [ ] Framework de interface: React ou Svelte.
 - [ ] Modo inicial do MVP: só treinador, ou treinador e dono de clube.
-- [ ] Escopo do MVP: quantas seleções, quais eras históricas e o que mantém o engajamento entre torneios, já que não há mercado nem finanças.
+- [ ] O que mantém o engajamento entre Copas, já que não há mercado nem finanças.
 - [ ] Backup no MVP sem cadastro: apenas exportar e importar o save?
 - [ ] Liga de referência para calibração (Brasileirão, Premier League ou média de várias).
 - [ ] Preço da versão premium e do passe de temporada por canal.
@@ -221,5 +216,6 @@ As fases não têm datas ainda; os prazos dependem do tamanho do time e serão d
 - [ECA Digital em vigor (Poder360)](https://www.poder360.com.br/poder-governo/eca-digital-entra-em-vigor-nesta-3a-feira-entenda-o-que-muda/)
 - [ECA Digital: sanções (Tecnoblog)](https://tecnoblog.net/noticias/eca-digital-entra-em-vigor-para-proteger-menores-na-internet-veja-mudancas/)
 - [ECA Digital e jogos (Canaltech)](https://canaltech.com.br/games/lei-felca-estreia-causando-alvoroco-e-ja-mexe-com-lol-fortnite-e-gta/)
-- [International results (martj42, GitHub)](https://github.com/martj42/international_results)
-- [Fjelstul World Cup Database (GitHub)](https://github.com/jfjelstul/worldcup)
+
+* [International results (martj42, GitHub)](https://github.com/martj42/international_results)
+* [Fjelstul World Cup Database (GitHub)](https://github.com/jfjelstul/worldcup)

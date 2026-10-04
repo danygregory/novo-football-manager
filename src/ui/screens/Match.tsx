@@ -1,8 +1,9 @@
+import { SPEEDS, type Speed } from '../speed';
 import { STAGE_LABEL, type Fixture, type Tournament } from '../../engine/tournament';
 import { Bar, NationName, STYLE_LABEL } from '../components/common';
 import { nationsById } from '../world';
 
-export function MatchIntro({ t, fixture, busy, onInstant, onWatch, onBack }: { t: Tournament; fixture: Fixture; busy: boolean; onInstant: () => void; onWatch: (speed: 1 | 4) => void; onBack: () => void }) {
+export function MatchIntro({ t, fixture, busy, onInstant, onWatch, lastSpeed, onBack }: { t: Tournament; fixture: Fixture; busy: boolean; onInstant: () => void; onWatch: (speed: Speed) => void; lastSpeed: Speed; onBack: () => void }) {
   const home = nationsById.get(fixture.home)!;
   const away = nationsById.get(fixture.away)!;
   const mineIsHome = fixture.home === t.userNationId;
@@ -41,8 +42,11 @@ export function MatchIntro({ t, fixture, busy, onInstant, onWatch, onBack }: { t
         </p>
       </div>
       <div className="row" style={{ marginTop: 18 }}>
-        <button className="primary" disabled={busy} onClick={() => onWatch(1)}>{busy ? 'Preparando…' : 'Assistir (1x)'}</button>
-        <button disabled={busy} onClick={() => onWatch(4)}>Assistir (4x)</button>
+        {SPEEDS.map((sp) => (
+          <button key={sp} className={sp === lastSpeed ? 'primary' : ''} disabled={busy} onClick={() => onWatch(sp)}>
+            {busy && sp === lastSpeed ? 'Preparando…' : `Assistir (${sp}x)`}
+          </button>
+        ))}
         <button disabled={busy} onClick={onInstant}>Simular instantâneo</button>
       </div>
     </div>
