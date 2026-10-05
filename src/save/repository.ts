@@ -8,6 +8,7 @@ export const SCHEMA = {
   daily: g.daily,
   stats: g.stats,
   scenarios: g.scenarios,
+  names: g.names,
   settings: g.settings,
 } as const;
 export type SaveKey = keyof typeof SCHEMA;
@@ -20,6 +21,7 @@ export const STORAGE_KEY: Record<SaveKey, string> = {
   daily: 'novo-fm-daily',
   stats: 'novo-fm-stats',
   scenarios: 'novo-fm-scenarios',
+  names: 'novo-fm-names',
   settings: 'novo-fm-settings',
 };
 

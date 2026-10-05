@@ -138,3 +138,11 @@ export interface ScenarioBest {
 }
 export const scenarios = (v: unknown): Record<string, ScenarioBest> | undefined =>
   record(v, 100, id, (x) => (isObj(x) ? all<ScenarioBest>({ points: int(x.points, 0, 100000), text: text(x.text, 80), date: date(x.date) }) : undefined));
+
+/** Nome de jogador escolhido pelo usuário: texto curto, sem caracteres de controle. */
+export function playerName(v: unknown): string | undefined {
+  if (typeof v !== 'string') return undefined;
+  const t = v.normalize('NFC').replace(/[\p{C}\u2028\u2029]/gu, '').replace(/\s+/g, ' ').trim();
+  return t.length >= 1 && t.length <= 40 ? t : undefined;
+}
+export const names = (v: unknown): Record<string, string> | undefined => record(v, 3000, id, playerName);

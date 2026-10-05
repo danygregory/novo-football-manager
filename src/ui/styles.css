@@ -239,3 +239,7 @@ button, tr.clickable, select, summary { touch-action: manipulation; }
 .clip-buttons { position: absolute; left: 10px; bottom: 10px; z-index: 3; gap: 8px; line-height: 1.3; }
 .clip-buttons button { font-size: .85rem; padding: .35em .8em; background: rgba(14,26,20,.88); }
 .clip-buttons button.primary { background: var(--accent); }
+
+.icon-btn { padding: 0 .35em; margin-left: .4em; border: none; background: transparent; color: var(--muted); font-size: .9rem; opacity: .7; }
+.icon-btn:hover:not(:disabled) { opacity: 1; color: var(--accent); }
+.name-edit { background: var(--panel-2); color: var(--text); border: 1px solid var(--accent); border-radius: 6px; padding: .2em .4em; font: inherit; width: 100%; max-width: 240px; }

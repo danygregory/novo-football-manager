@@ -4,6 +4,8 @@ import type { Player, Position } from '../../engine/types';
 import { ATTR_LABEL, Bar, NationName, PosPill, ovr, rowActivate } from '../components/common';
 import { squadOf } from '../../data/squads';
 import { nationsById } from '../world';
+import { nameOverrides } from '../../data/squads';
+import { renamePlayer, restoreNames } from '../names';
 
 const FILTERS: [Position | 'ALL', string][] = [['ALL', 'Todos'], ['GK', 'Goleiros'], ['DEF', 'Defensores'], ['MID', 'Meias'], ['FWD', 'Atacantes']];
 
@@ -21,10 +23,14 @@ export function Squad({
   const nation = nationsById.get(nationId)!;
   const [called, setCalled] = useState<Set<string>>(() => new Set(initial.length ? initial : autoSquad23(squadOf(nation)).map((p) => p.id)));
   const [filter, setFilter] = useState<Position | 'ALL'>('ALL');
+  /** Força a releitura do elenco depois de renomear (os nomes vêm de squadOf). */
+  const [namesVersion, setNamesVersion] = useState(0);
+  const [editing, setEditing] = useState<string>();
 
   const rows = useMemo(
     () => squadOf(nation).filter((p) => (filter === 'ALL' || p.position === filter) && (!readOnly || called.has(p.id))),
-    [nation, filter, readOnly, called],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [nation, filter, readOnly, called, namesVersion],
   );
   const count = (pos: Position) => squadOf(nation).filter((p) => called.has(p.id) && p.position === pos).length;
   const gks = count('GK');
@@ -50,6 +56,9 @@ export function Squad({
         </div>
         <div className="row">
           <span className={`chip ${valid ? 'accent' : ''}`}>{called.size}/23</span>
+          {squadOf(nation).some((p) => Object.hasOwn(nameOverrides(), p.id)) && (
+            <button className="ghost" onClick={() => { restoreNames(squadOf(nation).map((p) => p.id)); setNamesVersion((v) => v + 1); }}>Restaurar nomes originais</button>
+          )}
           {!readOnly && <button onClick={() => setCalled(new Set(autoSquad23(squadOf(nation)).map((p) => p.id)))}>Convocação automática</button>}
           <button className={readOnly ? 'primary' : 'ghost'} onClick={onBack}>Voltar</button>
           {!readOnly && <button className="primary" disabled={!valid} onClick={() => onConfirm([...called])} title={valid ? '' : 'Convoque exatamente 23 jogadores, com ao menos 2 goleiros'}>
@@ -82,7 +91,35 @@ export function Squad({
             {rows.map((p) => (
               <tr key={p.id} className={`${readOnly ? '' : 'clickable'} ${called.has(p.id) ? 'called' : ''}`} {...(readOnly ? {} : rowActivate(() => toggle(p), called.has(p.id)))}>
                 <td>{!readOnly && <input type="checkbox" readOnly tabIndex={-1} aria-label={`Convocado: ${p.name}`} checked={called.has(p.id)} />}</td>
-                <td>{p.name}</td>
+                <td>
+                  {editing === p.id ? (
+                    <input
+                      className="name-edit"
+                      autoFocus
+                      maxLength={40}
+                      defaultValue={p.name}
+                      aria-label={`Novo nome para ${p.name}`}
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => {
+                        e.stopPropagation();
+                        if (e.key === 'Enter') e.currentTarget.blur();
+                        if (e.key === 'Escape') setEditing(undefined);
+                      }}
+                      onBlur={(e) => {
+                        if (editing === p.id && e.currentTarget.value !== p.name) {
+                          renamePlayer(p.id, e.currentTarget.value);
+                          setNamesVersion((v) => v + 1);
+                        }
+                        setEditing(undefined);
+                      }}
+                    />
+                  ) : (
+                    <>
+                      {p.name}
+                      <button className="ghost icon-btn" title="Renomear este jogador (fica só no seu navegador)" aria-label={`Renomear ${p.name}`} onClick={(e) => { e.stopPropagation(); setEditing(p.id); }}>✎</button>
+                    </>
+                  )}
+                </td>
                 <td><PosPill p={p} /></td>
                 <td className="num">{p.age}</td>
                 <td className="muted">{p.style}</td>

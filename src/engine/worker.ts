@@ -15,6 +15,7 @@ import {
   type RoundOutcome,
   type Tournament,
 } from './tournament';
+import { setNameOverrides } from '../data/squads';
 import { createScenario, scenarioById } from './scenarios';
 import type { Lineup, MatchEvent, MatchReport, NationEra, World } from './types';
 
@@ -26,6 +27,8 @@ const world = worldJson as unknown as World;
 
 export interface Requests {
   createTournament: { nationId: string; squad: string[]; lineup: Lineup; seed: number; cut?: Cut; custom?: NationEra };
+  /** Nomes personalizados dos jogadores (só o texto exibido; não muda a simulação). */
+  setNames: { names: Record<string, string> };
   createScenario: { scenarioId: string; squad: string[]; lineup: Lineup };
   /** Simula a partida do usuário na rodada atual de uma vez (detalhe completo). */
   instantUserMatch: { tournament: Tournament };
@@ -53,6 +56,7 @@ export interface MatchDelta {
 
 export interface Responses {
   createTournament: Tournament;
+  setNames: null;
   createScenario: Tournament;
   instantUserMatch: { report: MatchReport; fixture: Fixture; userSide: 0 | 1; record: MatchRecord };
   playRound: RoundOutcome;
@@ -85,6 +89,10 @@ function delta(withReport = false): MatchDelta {
 
 const handlers: { [K in RequestType]: (p: Requests[K]) => Responses[K] } = {
   createTournament: (p) => createTournament(world, p.nationId, p.squad, p.lineup, p.seed, { cut: p.cut, custom: p.custom }),
+  setNames: (p) => {
+    setNameOverrides(p.names);
+    return null;
+  },
   createScenario: (p) => {
     const sc = scenarioById(p.scenarioId);
     if (!sc) throw new Error(`Cenário desconhecido: ${p.scenarioId}`);
