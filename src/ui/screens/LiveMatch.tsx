@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { LiveState, MatchCommand } from '../../engine/match';
+import { ClipButtons } from '../components/ClipButtons';
 import { STAGE_LABEL, type Fixture, type MatchRecord } from '../../engine/tournament';
 import type { MatchEvent, MatchReport } from '../../engine/types';
 import type { MatchDelta } from '../../engine/worker';
@@ -66,6 +67,9 @@ interface Model {
   scoreBump: number;
   shake: number;
   replay?: { frames: ReturnType<Choreo['recent']>; idx: number; acc: number };
+  /** Último clipe de gol gravado (vídeo do replay) e o rótulo para o nome do arquivo. */
+  clip?: { blob: Blob; label: string };
+  clipLabel: string;
   replayAt: number;
   warp: number;
   /** O motor parou no intervalo: não busca mais jogo até o usuário voltar do vestiário. */
@@ -121,6 +125,7 @@ export function LiveMatch({ start, speed0, reduced, onSpeed, onFinished, onBack 
     scoreBump: 0,
     shake: 0,
     replayAt: 0,
+    clipLabel: '',
     warp: 1,
     holdFetch: false,
     decisionShown: false,
@@ -180,6 +185,7 @@ export function LiveMatch({ start, speed0, reduced, onSpeed, onFinished, onBack 
       m.scoreBump++;
       m.flash = { title: 'GOL!', sub: `${playerById(ev.playerId ?? '')?.name ?? ''} · ${ev.minute}' · ${nationsById.get(ev.team === 0 ? fixture.home : fixture.away)?.country}` };
       m.replayAt = reducedRef.current ? 0 : performance.now() + 2400;
+      m.clipLabel = `${ev.minute}min`;
       setTimeout(() => {
         if (model.current.flash?.title === 'GOL!') {
           model.current.flash = undefined;
@@ -334,7 +340,9 @@ export function LiveMatch({ start, speed0, reduced, onSpeed, onFinished, onBack 
     const frames = choreo.recent(7.5);
     if (frames.length < 10) return;
     m.replay = { frames, idx: 0, acc: 0 };
+    m.clip = undefined;
     pitch.current?.setBanner('REPLAY');
+    pitch.current?.startRecording();
   };
 
   const stopReplay = () => {
@@ -342,6 +350,14 @@ export function LiveMatch({ start, speed0, reduced, onSpeed, onFinished, onBack 
     m.replay = undefined;
     m.replayAt = 0;
     pitch.current?.setBanner('');
+    // o replay acabou (ou foi pulado): fecha o clipe, se estava gravando
+    const label = m.clipLabel;
+    void pitch.current?.stopRecording().then((blob) => {
+      if (blob && blob.size > 5000) {
+        model.current.clip = { blob, label };
+        render();
+      }
+    });
     drawNow();
     render();
   };
@@ -582,6 +598,7 @@ export function LiveMatch({ start, speed0, reduced, onSpeed, onFinished, onBack 
               </div>
             )}
             {m.replay && <button className="skip-replay" onClick={stopReplay}>Pular replay ⏭</button>}
+            {m.clip && !m.replay && <ClipButtons clip={m.clip} />}
           </div>
           <div className="ticker muted">{m.ticker}</div>
           <div className="row controls">

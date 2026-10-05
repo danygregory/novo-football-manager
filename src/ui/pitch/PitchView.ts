@@ -48,6 +48,11 @@ export class PitchView {
   private reduced = false;
   /** Rótulo "REPLAY" e similares desenhados pelo próprio campo. */
   private banner = new Text({ text: '', style: new TextStyle({ fontFamily: 'system-ui, sans-serif', fontSize: 30, fontWeight: '800', fill: 0xf2c744, stroke: { color: 0x000000, width: 5 } }) });
+  /** Marca d'água que só aparece nos clipes gravados. */
+  private mark = new Text({ text: 'NOVO Football Manager', style: new TextStyle({ fontFamily: 'system-ui, sans-serif', fontSize: 16, fontWeight: '700', fill: 0xffffff, stroke: { color: 0x000000, width: 4 } }) });
+  private recorder?: MediaRecorder;
+  private chunks: Blob[] = [];
+  private recordedMime = '';
   private lastTick = 0;
   private debug = new Graphics();
   private debugOn = false;
@@ -76,6 +81,11 @@ export class PitchView {
     this.banner.position.set(PITCH_W / 2, 52);
     this.banner.visible = false;
     this.app.stage.addChild(this.banner);
+    this.mark.anchor.set(1, 1);
+    this.mark.position.set(PITCH_W - 14, PITCH_H - 10);
+    this.mark.alpha = 0.85;
+    this.mark.visible = false;
+    this.app.stage.addChild(this.mark);
     this.app.ticker.add((t) => this.tick(t.deltaMS));
     this.ready = true;
   }
@@ -194,6 +204,50 @@ export class PitchView {
     this.banner.visible = text.length > 0;
   }
 
+  // ---------- clipe ----------
+
+  /** O navegador sabe gravar o canvas? (MediaRecorder + captureStream) */
+  static canRecord(): boolean {
+    return typeof MediaRecorder !== 'undefined' && typeof HTMLCanvasElement !== 'undefined' && typeof HTMLCanvasElement.prototype.captureStream === 'function';
+  }
+
+  /** Começa a gravar o campo (com a marca d'água). Devolve false se não dá para gravar aqui. */
+  startRecording(): boolean {
+    if (!this.ready || this.recorder || !PitchView.canRecord()) return false;
+    const mime = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4'].find((t) => MediaRecorder.isTypeSupported(t));
+    try {
+      const stream = this.app.canvas.captureStream(30);
+      const rec = new MediaRecorder(stream, { ...(mime ? { mimeType: mime } : {}), videoBitsPerSecond: 3_000_000 });
+      this.chunks = [];
+      this.recordedMime = rec.mimeType || mime || 'video/webm';
+      rec.ondataavailable = (e) => {
+        if (e.data.size > 0) this.chunks.push(e.data);
+      };
+      rec.start(250);
+      this.recorder = rec;
+      this.mark.visible = true;
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Encerra a gravação e devolve o vídeo (ou nada, se não gravou). */
+  stopRecording(): Promise<Blob | undefined> {
+    const rec = this.recorder;
+    this.recorder = undefined;
+    this.mark.visible = false;
+    if (!rec || rec.state === 'inactive') return Promise.resolve(undefined);
+    return new Promise((resolve) => {
+      rec.onstop = () => resolve(this.chunks.length ? new Blob(this.chunks, { type: this.recordedMime }) : undefined);
+      try {
+        rec.stop();
+      } catch {
+        resolve(undefined);
+      }
+    });
+  }
+
   // ---------- efeitos ----------
 
   netRippleFor(side: 0 | 1): void {
@@ -245,6 +299,8 @@ export class PitchView {
 
   destroy(): void {
     this.destroyed = true;
+    if (this.recorder && this.recorder.state !== 'inactive') this.recorder.stop();
+    this.recorder = undefined;
     if (this.ready) {
       this.app.destroy(true, { children: true });
       this.ready = false;
