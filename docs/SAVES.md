@@ -8,6 +8,8 @@ Decidido antes da Fase 7, para que o save/load seja só ligar peças.
 - `data/golden-engine.txt` começa com `# engine-version N`. `npm run golden` falha se a versão do baseline e a do motor diferirem, e a mensagem manda subir `ENGINE_VERSION` e rodar `--update`. Assim, mudar o motor sem subir a versão é pego pelo CI.
 - `SAVE_VERSION` (`src/save/file.ts`): versão do formato do arquivo. Mudou o esquema? Suba e escreva a migração em `migrate`. Save de versão mais nova que a do jogo é recusado.
 
+Histórico: **v1** = motor original; **v2** = `pow/exp/log/cos` determinísticos (`src/engine/dmath.ts`). O CI do GitHub (Linux x64) gerou 3 de 121 partidas diferentes do baseline gravado num Mac (arm64): o V8 compila `Math.pow/exp/log/cos` de forma diferente em cada arquitetura e um bit de diferença muda o desfecho. Com `dmath` (só `+ - * /`, `sqrt` e manipulação de bits), a mesma seed dá a mesma partida em qualquer máquina, o que os links de desafio, o desafio do dia e os replays exigem. Regra: o motor nunca usa `Math.pow/exp/log/sin/cos/tan/atan/hypot`; um teste do `dmath` fixa os bits dos resultados.
+
 ## Camadas (`src/save`)
 
 - `guards.ts`: valida cada tipo persistido e devolve só os campos conhecidos. Limites de tamanho, ids `^[A-Za-z0-9._:-]{1,64}$`, datas `aaaa-mm-dd`, cores `#rrggbb`, números finitos e dentro de faixa. Registros indexados por id (conquistas, desafio do dia) saem com protótipo nulo e rejeitam `__proto__`, `constructor` e `prototype`.

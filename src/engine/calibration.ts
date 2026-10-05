@@ -5,10 +5,11 @@ import { simulateMatch, type TeamSetup } from './match';
 import type { Params } from './params';
 import { Rng } from './prng';
 import type { NationEra, World } from './types';
+import { pow as dpow } from './dmath';
 
 /** Probabilidade esperada (pontos: V=1, E=0,5) do Elo `a` contra `b` em campo neutro. */
 export function eloExpected(a: number, b: number): number {
-  return 1 / (1 + Math.pow(10, (b - a) / 400));
+  return 1 / (1 + dpow(10, (b - a) / 400));
 }
 
 export const BANDS: [number, number][] = [

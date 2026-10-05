@@ -1,3 +1,4 @@
+import { cos as dcos, exp as dexp, log as dlog } from './dmath';
 /** PRNG determinístico (mulberry32). Único gerador permitido no motor e nos geradores de dados. */
 
 /** Hash de string -> uint32 (FNV-1a), para derivar seeds a partir de textos. */
@@ -63,12 +64,12 @@ export class Rng {
   normal(mean = 0, sd = 1): number {
     const u = Math.max(this.next(), 1e-12);
     const v = this.next();
-    return mean + sd * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+    return mean + sd * Math.sqrt(-2 * dlog(u)) * dcos(2 * Math.PI * v);
   }
 
   /** Poisson por Knuth (adequado para lambdas pequenos). */
   poisson(lambda: number): number {
-    const limit = Math.exp(-lambda);
+    const limit = dexp(-lambda);
     let k = 0;
     let p = 1;
     do {

@@ -21,6 +21,7 @@ import {
 } from './narration';
 import { overall } from './player';
 import { Rng } from './prng';
+import { exp as dexp, log as dlog, pow as dpow } from './dmath';
 import type {
   Attributes,
   Dive,
@@ -235,8 +236,8 @@ function sectorQuality(a: Attributes): [number, number, number] {
 }
 
 const other = (s: Side): Side => (s === 0 ? 1 : 0);
-const logit = (p: number) => Math.log(p / (1 - p));
-const sigmoid = (x: number) => 1 / (1 + Math.exp(-x));
+const logit = (p: number) => dlog(p / (1 - p));
+const sigmoid = (x: number) => 1 / (1 + dexp(-x));
 
 /** Traços de craque que o motor reconhece: quem finaliza e quem cria ganham mais protagonismo nos lances. */
 const SHOOTER_TRAITS = new Set(['artilheiro de área', 'centroavante completo', 'driblador decisivo', 'camisa 10 genial', 'ponta-foguete']);
@@ -287,10 +288,10 @@ export class MatchSimulator {
     this.knockout = opts.knockout ?? false;
     const k = this.params.k;
     const adv = this.params.advance0;
-    const b = (p: number) => Math.pow(p / (1 - p), 1 / k);
+    const b = (p: number) => dpow(p / (1 - p), 1 / k);
     const g0 = setups[0].goalRate ?? this.params.baseGoalRate;
     const g1 = setups[1].goalRate ?? this.params.baseGoalRate;
-    this.eraFactor = Math.pow(clamp((g0 + g1) / 2 / this.params.baseGoalRate, 0.5, 2), this.params.eraExp);
+    this.eraFactor = dpow(clamp((g0 + g1) / 2 / this.params.baseGoalRate, 0.5, 2), this.params.eraExp);
     this.biasDef = { DEF: b(adv.DEF), MID: b(adv.MID), ATT: b(adv.ATT) };
     this.sides = [this.makeSide(setups[0]), this.makeSide(setups[1])];
     this.starters = [this.sides[0].setup.lineup.starters.slice(), this.sides[1].setup.lineup.starters.slice()];
@@ -695,7 +696,7 @@ export class MatchSimulator {
   private awardPenalty(side: Side): void {
     this.ball = { team: side, zone: 'ATT', mode: 'build' };
     if (this.open({ kind: 'penalty', side })) return;
-    const taker = this.pickPlayer(side, (x) => SHOOTER_SLOT_WEIGHT[x.slot] * Math.pow(Math.max(1, x.p.attrs.finalizacao), 2));
+    const taker = this.pickPlayer(side, (x) => SHOOTER_SLOT_WEIGHT[x.slot] * dpow(Math.max(1, x.p.attrs.finalizacao), 2));
     this.beginPenalty(side, taker.p.id);
   }
 
@@ -895,7 +896,7 @@ export class MatchSimulator {
     const sector = (i: number) => {
       const w = weights[i] as number;
       if (w <= 0) return 1;
-      return ((sums[i] as number) / w) * Math.pow(w / (REF_WEIGHTS[i] as number), 0.5);
+      return ((sums[i] as number) / w) * dpow(w / (REF_WEIGHTS[i] as number), 0.5);
     };
     const mor = 1 + s.morale;
     s.sectors = { def: sector(0) * mor * s.defMult, mid: sector(1) * mor, att: sector(2) * mor * s.attMult, speed: speedW > 0 ? speedSum / speedW : 50, gk };
@@ -907,8 +908,8 @@ export class MatchSimulator {
 
   private p(a: number, b: number): number {
     const k = this.params.k;
-    const x = Math.pow(a, k);
-    return x / (x + Math.pow(b, k));
+    const x = dpow(a, k);
+    return x / (x + dpow(b, k));
   }
 
   private step(): void {
@@ -936,9 +937,9 @@ export class MatchSimulator {
     if (zone === 'DEF' && this.ball.mode === 'build') {
       const pLong = this.params.longBallBase * (0.5 + 1.0 * fa.tempo) * fa.longMult * (0.6 + 0.9 * lineD);
       if (this.rng.chance(pLong)) {
-        const A = sa.att * Math.pow(sa.speed / 65, 0.7);
+        const A = sa.att * dpow(sa.speed / 65, 0.7);
         const B = sd.def * (1.1 - 0.4 * lineD);
-        const pr = this.p(A * Math.pow(this.params.longBall0 / (1 - this.params.longBall0), 1 / this.params.k), B);
+        const pr = this.p(A * dpow(this.params.longBall0 / (1 - this.params.longBall0), 1 / this.params.k), B);
         if (this.rng.chance(pr)) {
           if (this.offside(aSide, lineD, 1.8)) return;
           this.ball = { team: aSide, zone: 'ATT', mode: 'long' };
@@ -967,7 +968,7 @@ export class MatchSimulator {
         A = sa.att * precision * (1 + this.params.tactics.attackTempo * (fa.tempo - 0.5));
         B = sd.def * (1 + this.params.tactics.defLineCompact * (0.5 - lineD));
       } else {
-        A = sa.att * Math.pow(sa.speed / 65, 0.7);
+        A = sa.att * dpow(sa.speed / 65, 0.7);
         B = sd.def * (1.1 - 0.4 * lineD);
       }
     }
@@ -978,7 +979,7 @@ export class MatchSimulator {
       if (next === 'BOX') {
         if (this.offside(aSide, lineD, this.ball.mode === 'counter' ? 1.3 : 1)) return;
         const type: ShotType = this.ball.mode === 'build' ? (this.rng.chance(0.22) ? 'cruzamento' : 'trabalhada') : 'contra-ataque';
-        const quality = clamp(Math.pow(A / B, this.params.qualityExp), 0.5, 2);
+        const quality = clamp(dpow(A / B, this.params.qualityExp), 0.5, 2);
         this.shoot(aSide, type, quality);
       } else {
         this.ball = { team: aSide, zone: next, mode: 'build' };
@@ -1083,8 +1084,8 @@ export class MatchSimulator {
     const isPen = type === 'penalti';
     const slotW = type === 'cruzamento' || type === 'bola-parada' ? SET_PIECE_SLOT_WEIGHT : SHOOTER_SLOT_WEIGHT;
     const forced = forcedShooter ? S.players.find((x) => x.p.id === forcedShooter && x.onPitch) : undefined;
-    const shooter = forced ?? this.pickPlayer(side, (x) => slotW[x.slot] * Math.pow(Math.max(1, x.p.attrs.finalizacao), 2) * (x.p.trait && SHOOTER_TRAITS.has(x.p.trait) ? 1.4 : 1));
-    const assister = isPen || type === 'bola-parada' ? undefined : this.pickPlayer(side, (x) => (x === shooter ? 0 : ASSIST_SLOT_WEIGHT[x.slot] * Math.pow(Math.max(1, x.p.attrs.passe), 2) * (x.p.trait && ASSIST_TRAITS.has(x.p.trait) ? 1.4 : 1)));
+    const shooter = forced ?? this.pickPlayer(side, (x) => slotW[x.slot] * dpow(Math.max(1, x.p.attrs.finalizacao), 2) * (x.p.trait && SHOOTER_TRAITS.has(x.p.trait) ? 1.4 : 1));
+    const assister = isPen || type === 'bola-parada' ? undefined : this.pickPlayer(side, (x) => (x === shooter ? 0 : ASSIST_SLOT_WEIGHT[x.slot] * dpow(Math.max(1, x.p.attrs.passe), 2) * (x.p.trait && ASSIST_TRAITS.has(x.p.trait) ? 1.4 : 1)));
     const keeper = D.players.find((x) => x.onPitch && x.slot === 'GK');
 
     const xg = clamp(this.params.xg[type] * (isPen ? 1 : quality * this.eraFactor), 0.01, 0.95);
