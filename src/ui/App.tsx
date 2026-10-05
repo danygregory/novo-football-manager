@@ -68,6 +68,9 @@ interface Game {
   live?: { start: LiveStart; speed: Speed };
 }
 
+/** Ordem dos cenários oferecidos no botão principal: os de gancho mais fácil de entender primeiro. */
+const QUICK_ORDER = ['brasil-contra-brasil', 'maracanazo', 'davi-golias', 'milagre-berna', 'laranja', 'tiki-taka', 'final-moderna', 'caiu-no-grupo'];
+
 const FRESH: Game = { screen: 'home', called: [], cut: 'all' };
 
 function loadSettings() {
@@ -326,6 +329,18 @@ function MainApp() {
     setHomeMsg({ ok: true, text: 'Save importado.' });
   };
 
+  /** Botão principal da tela inicial: o primeiro cenário ainda não jogado (na ordem de gancho); depois, um sorteado. */
+  const [quickSeed] = useState(() => Math.random());
+  const quick = (() => {
+    const done = repo.load('scenarios') ?? {};
+    const order = QUICK_ORDER.map((id) => scenarioById(id)).filter((s): s is Scenario => !!s);
+    const sc = order.find((s) => !done[s.id]) ?? SCENARIOS[Math.floor(quickSeed * SCENARIOS.length)];
+    const me = sc && nationsById.get(sc.user);
+    const opp = sc && nationsById.get(sc.opponent);
+    if (!sc || !me || !opp) return undefined;
+    return { title: sc.title, blurb: `${nationLabel(me)} contra ${nationLabel(opp)}`, first: Object.keys(done).length === 0, onPlay: () => playScenarioNow(sc) };
+  })();
+
   const runInfo = savedRun
     ? (() => {
         const tt = savedRun.tournament;
@@ -439,6 +454,7 @@ function MainApp() {
 
       {g.screen === 'home' && (
         <Home
+          quick={quick}
           resume={runInfo}
           onResume={() => savedRun && resumeRun(savedRun)}
           onDiscard={() => { if (confirm('Descartar a Copa em andamento?')) { repo.remove('run'); setSavedRun(undefined); } }}
@@ -595,7 +611,7 @@ function MainApp() {
       )}
 
       {g.screen === 'live' && g.live && (
-        <LiveMatch key={g.live.start.fixture.id} start={g.live.start} speed0={g.live.speed} reduced={reduced} onSpeed={rememberSpeed} onFinished={(r, rec) => void finishLive(r, rec)} onBack={() => void exitLive()} />
+        <LiveMatch showTip={!settings.tipSeen} onTipSeen={() => saveSettings({ ...settings, tipSeen: true })} key={g.live.start.fixture.id} start={g.live.start} speed0={g.live.speed} reduced={reduced} onSpeed={rememberSpeed} onFinished={(r, rec) => void finishLive(r, rec)} onBack={() => void exitLive()} />
       )}
 
       {g.screen === 'post' && g.last && t && (

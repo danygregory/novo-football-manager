@@ -245,3 +245,8 @@ button, tr.clickable, select, summary { touch-action: manipulation; }
 .name-edit { background: var(--panel-2); color: var(--text); border: 1px solid var(--accent); border-radius: 6px; padding: .2em .4em; font: inherit; width: 100%; max-width: 240px; }
 
 .home .legal { font-size: .78rem; max-width: 640px; margin: 22px auto 0; }
+
+.quick { border-color: var(--accent); }
+button.big { font-size: 1.1rem; padding: .7em 1.6em; }
+.tip { margin: 8px 0; padding: 10px 14px; font-size: .9rem; line-height: 1.5; }
+.home .quick .row.between, .home .resume .row.between { justify-content: space-between; }

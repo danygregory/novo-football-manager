@@ -122,12 +122,15 @@ export const stats = (v: unknown): { cups: number } | undefined => (isObj(v) ? a
 export interface Settings {
   reduceMotion?: boolean;
   speed?: 2 | 4;
+  /** A dica da primeira partida já foi vista. */
+  tipSeen?: boolean;
 }
 export function settings(v: unknown): Settings | undefined {
   if (!isObj(v)) return undefined;
   const out: Settings = {};
   if (typeof v.reduceMotion === 'boolean') out.reduceMotion = v.reduceMotion;
   if (v.speed === 2 || v.speed === 4) out.speed = v.speed;
+  if (typeof v.tipSeen === 'boolean') out.tipSeen = v.tipSeen;
   return out;
 }
 

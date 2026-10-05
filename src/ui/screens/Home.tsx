@@ -7,8 +7,10 @@ export interface ResumeInfo {
   savedAt: string;
 }
 
-export function Home({ modes, resume, onResume, onDiscard, onExport, onImport, message, onAchievements }: {
+export function Home({ modes, quick, resume, onResume, onDiscard, onExport, onImport, message, onAchievements }: {
   modes: ModeHandlers;
+  /** Jogada rápida em destaque: um cenário de uma partida, em um toque. */
+  quick?: { title: string; blurb: string; first: boolean; onPlay: () => void };
   /** Copa ou cenário em andamento, se houver. */
   resume?: ResumeInfo;
   onResume: () => void;
@@ -27,6 +29,18 @@ export function Home({ modes, resume, onResume, onDiscard, onExport, onImport, m
       <p>
         Escolha uma seleção de uma era histórica, convoque, defina a tática e dispute uma Copa de 32 seleções. A força vem de resultados reais; os jogadores são todos fictícios.
       </p>
+      {quick && (
+        <div className="panel quick" style={{ maxWidth: 900, margin: '0 auto 14px', textAlign: 'left' }}>
+          <div className="row between">
+            <div>
+              <div className="muted" style={{ fontSize: '.8rem', textTransform: 'uppercase', letterSpacing: '.06em' }}>{quick.first ? 'Comece por aqui · uma partida' : 'Próxima partida'}</div>
+              <b style={{ fontSize: '1.2rem' }}>{quick.title}</b>
+              <div className="muted">{quick.blurb}</div>
+            </div>
+            <button className="primary big" onClick={quick.onPlay}>Jogar agora</button>
+          </div>
+        </div>
+      )}
       {resume && (
         <div className="panel resume" style={{ maxWidth: 900, margin: '0 auto 14px', textAlign: 'left' }}>
           <div className="row between">
@@ -41,6 +55,7 @@ export function Home({ modes, resume, onResume, onDiscard, onExport, onImport, m
           </div>
         </div>
       )}
+      <h3 style={{ maxWidth: 900, margin: '10px auto 8px', textAlign: 'left' }}>Ou escolha um modo</h3>
       <div style={{ textAlign: 'left', maxWidth: 900, margin: '0 auto 18px' }}>
         <ModeCards {...modes} />
       </div>

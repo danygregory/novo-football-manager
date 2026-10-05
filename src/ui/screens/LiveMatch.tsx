@@ -87,7 +87,7 @@ interface Model {
   skipSignal: number;
 }
 
-export function LiveMatch({ start, speed0, reduced, onSpeed, onFinished, onBack }: { start: LiveStart; speed0: Speed; reduced: boolean; onSpeed: (s: Speed) => void; onFinished: (report: MatchReport, record: MatchRecord) => void; onBack: () => void }) {
+export function LiveMatch({ start, speed0, reduced, onSpeed, onFinished, onBack, showTip, onTipSeen }: { /** Dica da primeira partida (some ao tocar em "Entendi"). */ showTip?: boolean; onTipSeen?: () => void; start: LiveStart; speed0: Speed; reduced: boolean; onSpeed: (s: Speed) => void; onFinished: (report: MatchReport, record: MatchRecord) => void; onBack: () => void }) {
   const { fixture, userSide } = start;
   const nations = [nationsById.get(fixture.home)!, nationsById.get(fixture.away)!] as const;
   const mine = nations[userSide];
@@ -601,6 +601,12 @@ export function LiveMatch({ start, speed0, reduced, onSpeed, onFinished, onBack 
             {m.clip && !m.replay && <ClipButtons clip={m.clip} />}
           </div>
           <div className="ticker muted">{m.ticker}</div>
+          {showTip && (
+            <div className="panel tip" role="note">
+              <b>Como jogar:</b> <b>2x/4x</b> muda a velocidade · <b>Pausar</b> ou <b>Substituir / Tática</b> para mexer no time · os <b>Gritos</b> mudam o jogo por 10 minutos · se estiver perdendo no fim, o jogo para e pergunta o que você faz.
+              <button className="ghost" style={{ marginLeft: 8 }} onClick={onTipSeen}>Entendi</button>
+            </div>
+          )}
           <div className="row controls">
             <button onClick={togglePause} disabled={done || busy}>{m.paused ? '▶ Retomar' : '⏸ Pausar'}</button>
             <button className={m.speed === 2 ? 'active' : ''} onClick={() => { m.speed = 2; onSpeed(2); render(); }}>2x</button>
