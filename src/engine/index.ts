@@ -1,3 +1,4 @@
+export * from './version';
 export * from './prng';
 export * from './types';
 export * from './params';

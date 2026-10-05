@@ -3,6 +3,7 @@ import { autoLineup, autoSquad23, tacticsForStyle } from './lineup';
 import { replayMatch, simulateMatch, type LoggedCommand, type TeamSetup } from './match';
 import { squadOf } from '../data/squads';
 import { Rng, hashSeed } from './prng';
+import { ENGINE_VERSION, EngineVersionError } from './version';
 import type { Decade, Lineup, MatchReport, NationEra, Player, World } from './types';
 
 /** Copa do Mundo: 8 grupos de 4, os 2 primeiros avançam; oitavas, quartas, semifinais e final. */
@@ -49,6 +50,8 @@ export interface MatchResult {
  * no apito inicial e a lista de comandos (minuto exato + comando).
  */
 export interface MatchRecord {
+  /** Versão do motor que jogou a partida (ver version.ts): o replay só vale na mesma versão. */
+  engineVersion: number;
   fixtureId: string;
   stage: Stage;
   seed: number;
@@ -340,6 +343,7 @@ export function startRecord(t: Tournament, fixture: Fixture, setups: [TeamSetup,
   const cond: Record<string, number> = {};
   for (const s of setups) for (const p of s.squad) cond[p.id] = p.condition;
   return {
+    engineVersion: ENGINE_VERSION,
     fixtureId: fixture.id,
     stage: fixture.stage,
     seed: fixtureSeed(t, fixture),
@@ -367,8 +371,9 @@ export function setupsFromRecord(worldIn: World, rec: MatchRecord): [TeamSetup, 
   return [make(0), make(1)];
 }
 
-/** Reproduz a partida gravada: o relatório sai idêntico ao original, incluindo as decisões do usuário. */
+/** Reproduz a partida gravada (lança EngineVersionError se foi jogada em outra versão do motor): o relatório sai idêntico ao original, incluindo as decisões do usuário. */
 export function replayRecord(world: World, rec: MatchRecord): MatchReport {
+  if (rec.engineVersion !== ENGINE_VERSION) throw new EngineVersionError(rec.engineVersion, ENGINE_VERSION);
   return replayMatch(setupsFromRecord(world, rec), { seed: rec.seed, knockout: rec.knockout, detail: 'full' }, rec.commands);
 }
 

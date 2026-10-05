@@ -59,6 +59,7 @@ docs/         plano, dados, calibração, fases e segurança
 - [docs/DADOS.md](docs/DADOS.md): fontes, licenças e como o mundo é gerado
 - [docs/CALIBRACAO.md](docs/CALIBRACAO.md): metas, parâmetros finais e balanceamento do draft
 - [docs/DESEMPENHO.md](docs/DESEMPENHO.md): medidas e limpeza
+- [docs/SAVES.md](docs/SAVES.md): desenho dos saves (versões, validação, repositório)
 - [docs/BALANCE_MODOS.md](docs/BALANCE_MODOS.md): balanceamento da carreira, do desafio do dia e das conquistas
 - [docs/FASE_6_5.md](docs/FASE_6_5.md), [docs/FASE_6_7.md](docs/FASE_6_7.md): partida viva, modos de jogo e segurança
 - [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md): licenças de terceiros

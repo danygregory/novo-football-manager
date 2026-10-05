@@ -7,7 +7,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
  * tudo idêntico. Mudou o motor de propósito (parâmetros, regras)? Rode com --update para gravar o novo baseline.
  * Uso: npm run golden [-- --update]
  */
-import { autoLineup, autoSquad23, tacticsForStyle, simulateMatch, MatchSimulator, type TeamSetup, type World } from '../src/engine';
+import { ENGINE_VERSION, autoLineup, autoSquad23, tacticsForStyle, simulateMatch, MatchSimulator, type TeamSetup, type World } from '../src/engine';
 import { squadOf } from '../src/data/squads';
 const world = JSON.parse(readFileSync('data/world.json', 'utf8')) as World;
 const mk = (id: string, ai: boolean): TeamSetup => { const n = world.nations.find((x) => x.id === id)!; const squad = autoSquad23(squadOf(n)); return { nationId: id, name: n.country, squad, lineup: autoLineup(id, squad, tacticsForStyle(n.playStyle)), ai }; };
@@ -25,12 +25,17 @@ const sim = new MatchSimulator([mk('BRA-1970', false), mk('GER-1980', true)], { 
 sim.playUntil(12.3); sim.execute({ kind: 'shout', side: 0, shout: 'press' }); sim.playUntil(80); sim.execute({ kind: 'talk', side: 0, tone: 'demand' });
 out.push(createHash('sha1').update(JSON.stringify(sim.playToEnd())).digest('hex').slice(0, 12));
 const BASE = 'data/golden-engine.txt';
+const HEADER = `# engine-version ${ENGINE_VERSION}`;
 if (process.argv.includes('--update') || !existsSync(BASE)) {
-  writeFileSync(BASE, out.join('\n'));
+  writeFileSync(BASE, [HEADER, ...out].join('\n'));
   console.log(`baseline gravado: ${out.length} partidas`);
 } else {
-  const base = readFileSync(BASE, 'utf8').split('\n');
+  const [header, ...base] = readFileSync(BASE, 'utf8').split('\n');
+  if (header !== HEADER) {
+    console.log(`Baseline gravado na versão do motor diferente (${header} x ${HEADER}): rode com --update ao subir ENGINE_VERSION.`);
+    process.exit(1);
+  }
   const diffs = out.map((h, i) => (h === base[i] ? -1 : i)).filter((i) => i >= 0);
-  console.log(diffs.length === 0 ? `OK: ${out.length} partidas idênticas ao baseline` : `DIFERENTE em ${diffs.length} partidas (primeiras: ${diffs.slice(0, 8).join(', ')})`);
+  console.log(diffs.length === 0 ? `OK: ${out.length} partidas idênticas ao baseline` : `DIFERENTE em ${diffs.length} partidas (primeiras: ${diffs.slice(0, 8).join(', ')}). Mudança de propósito? Suba ENGINE_VERSION e rode --update.`);
   if (diffs.length) process.exitCode = 1;
 }

@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { ACHIEVEMENTS, type RankingEntry } from '../../engine/scoring';
-import { KEYS, loadJson, removeKey } from '../store';
+import { repo } from '../store';
 
 const MODE_LABEL: Record<RankingEntry['mode'], string> = { career: 'Carreira', daily: 'Desafio do dia', draft: 'Draft', ready: 'Seleção pronta' };
 
 export function Achievements({ onBack }: { onBack: () => void }) {
-  const [unlocked, setUnlocked] = useState<Record<string, string>>(() => loadJson<Record<string, string>>(KEYS.achievements) ?? {});
-  const [ranking, setRanking] = useState<RankingEntry[]>(() => loadJson<RankingEntry[]>(KEYS.ranking) ?? []);
+  const [unlocked, setUnlocked] = useState<Record<string, string>>(() => repo.load('achievements') ?? {});
+  const [ranking, setRanking] = useState<RankingEntry[]>(() => repo.load('ranking') ?? []);
   const done = ACHIEVEMENTS.filter((a) => unlocked[a.id]).length;
   return (
     <div>
@@ -39,7 +39,7 @@ export function Achievements({ onBack }: { onBack: () => void }) {
             </table>
           )}
           {ranking.length > 0 && (
-            <button className="ghost" style={{ marginTop: 8 }} onClick={() => { if (confirm('Apagar o ranking?')) { removeKey(KEYS.ranking); setRanking([]); } }}>Apagar ranking</button>
+            <button className="ghost" style={{ marginTop: 8 }} onClick={() => { if (confirm('Apagar o ranking?')) { repo.remove('ranking'); setRanking([]); } }}>Apagar ranking</button>
           )}
         </div>
         <div className="panel">
@@ -56,7 +56,7 @@ export function Achievements({ onBack }: { onBack: () => void }) {
             ))}
           </div>
           {done > 0 && (
-            <button className="ghost" style={{ marginTop: 8 }} onClick={() => { if (confirm('Apagar as conquistas?')) { removeKey(KEYS.achievements); setUnlocked({}); } }}>Apagar conquistas</button>
+            <button className="ghost" style={{ marginTop: 8 }} onClick={() => { if (confirm('Apagar as conquistas?')) { repo.remove('achievements'); setUnlocked({}); } }}>Apagar conquistas</button>
           )}
         </div>
       </div>

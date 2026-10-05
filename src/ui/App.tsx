@@ -5,8 +5,9 @@ import { squadOf } from '../data/squads';
 import type { Lineup, MatchReport } from '../engine/types';
 import { applyCup, careerCut, newCareer, reputationDelta, takeTeam, type Career, type CupEvaluation } from '../engine/career';
 import { Kit } from './components/common';
-import { KEYS, loadJson, removeKey, saveJson, todayIso } from './store';
-import { DEFAULT_SPEED, isSpeed, type Speed } from './speed';
+import { repo, todayIso } from './store';
+import type { Settings } from '../save';
+import { DEFAULT_SPEED, type Speed } from './speed';
 import { engine } from './engineClient';
 import { Cup } from './screens/Cup';
 import { CupEnd } from './screens/CupEnd';
@@ -14,7 +15,7 @@ import { Achievements } from './screens/Achievements';
 import { DailyIntro, DailyShare } from './screens/Daily';
 import { bestOfDay, dailyCut, dailySeed, dailyTeam, shareText, type DailyRecord } from '../engine/daily';
 import { ScoreCard } from './screens/ScoreCard';
-import { addToRanking, newAchievements, rankingEntry, summarizeCup, type Achievement, type CupSummary, type RankingEntry } from '../engine/scoring';
+import { addToRanking, newAchievements, rankingEntry, summarizeCup, type Achievement, type CupSummary } from '../engine/scoring';
 import { CareerAfterCup, CareerChoose, CareerHome } from './screens/Career';
 import { CupSetup } from './screens/CupSetup';
 import { DraftBoard } from './screens/DraftBoard';
@@ -55,21 +56,8 @@ interface Game {
 
 const FRESH: Game = { screen: 'home', called: [], cut: 'all' };
 
-const SETTINGS_KEY = 'novo-fm-settings';
-
-interface Settings {
-  reduceMotion?: boolean;
-  /** Última velocidade escolhida (2x ou 4x). */
-  speed?: Speed;
-}
-
-function loadSettings(): Settings {
-  try {
-    const s = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') as Settings;
-    return { ...s, speed: isSpeed(s.speed) ? s.speed : undefined };
-  } catch {
-    return {};
-  }
+function loadSettings() {
+  return repo.load('settings') ?? {};
 }
 
 export function App() {
@@ -85,11 +73,7 @@ function MainApp() {
   const reduced = settings.reduceMotion ?? systemReduced;
   const saveSettings = (next: Settings) => {
     setSettings(next);
-    try {
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
-    } catch {
-      /* sem armazenamento: a escolha vale só nesta sessão */
-    }
+    repo.save('settings', next);
   };
   const toggleReduced = () => saveSettings({ ...settings, reduceMotion: !reduced });
   const lastSpeed: Speed = settings.speed ?? DEFAULT_SPEED;
@@ -189,29 +173,29 @@ function MainApp() {
     let careerResult = g.careerResult;
     if (g.mode === 'career' && career && !g.careerApplied) {
       career = applyCup(world, career, t0, summary.ev, summary.total);
-      saveJson(KEYS.career, career);
+      repo.save('career', career);
       careerResult = { delta: reputationDelta(summary.ev), ev: summary.ev };
     }
-    const stats = loadJson<{ cups: number }>(KEYS.stats) ?? { cups: 0 };
-    const already = new Set(Object.keys(loadJson<Record<string, string>>(KEYS.achievements) ?? {}));
+    const stats = repo.load('stats') ?? { cups: 0 };
+    const already = new Set(Object.keys(repo.load('achievements') ?? {}));
     const achievements = newAchievements(
       summary,
       { daily: g.mode === 'daily', careerTitles: career?.entries.filter((e) => e.champion).length, careerRep: g.mode === 'career' ? career?.rep : undefined, previousCups: stats.cups },
       already,
     );
     const date = todayIso();
-    if (achievements.length) saveJson(KEYS.achievements, { ...(loadJson<Record<string, string>>(KEYS.achievements) ?? {}), ...Object.fromEntries(achievements.map((a) => [a.id, date])) });
+    if (achievements.length) repo.save('achievements', { ...repo.load('achievements'), ...Object.fromEntries(achievements.map((a) => [a.id, date])) });
     const team = nationsById.get(t0.userNationId)?.country ?? t0.userNationId;
-    saveJson(KEYS.ranking, addToRanking(loadJson<RankingEntry[]>(KEYS.ranking) ?? [], rankingEntry(summary, g.mode ?? 'ready', team, date)));
-    saveJson(KEYS.stats, { cups: stats.cups + 1 });
+    repo.save('ranking', addToRanking(repo.load('ranking') ?? [], rankingEntry(summary, g.mode ?? 'ready', team, date)));
+    repo.save('stats', { cups: stats.cups + 1 });
     let dailyRecord: DailyRecord | undefined;
     if (g.mode === 'daily' && g.dailyDate) {
       const dayTeam = dailyTeam(world, g.dailyDate);
       const text = shareText(g.dailyDate, dayTeam, summary, `${dayTeam.country} ${eraSpan(dayTeam)}`);
-      const all = loadJson<Record<string, DailyRecord>>(KEYS.daily) ?? {};
+      const all = repo.load('daily') ?? {};
       dailyRecord = bestOfDay(all[g.dailyDate], { date: g.dailyDate, points: summary.total, stageText: summary.stageText, champion: summary.ev.champion, text });
       // o texto compartilhado mostra a campanha desta partida; o melhor do dia fica salvo
-      saveJson(KEYS.daily, { ...all, [g.dailyDate]: dailyRecord });
+      repo.save('daily', { ...all, [g.dailyDate]: dailyRecord });
       dailyRecord = { date: g.dailyDate, points: summary.total, stageText: summary.stageText, champion: summary.ev.champion, text };
     }
     setG((prev) => ({ ...prev, career, careerApplied: prev.mode === 'career' ? true : prev.careerApplied, careerResult, scored: { summary, achievements, daily: dailyRecord } }));
@@ -219,13 +203,13 @@ function MainApp() {
   }, [g.screen]);
 
   const persistCareer = (career: Career) => {
-    saveJson(KEYS.career, career);
+    repo.save('career', career);
     return career;
   };
 
   const openCareer = () => {
     registerCustom(undefined);
-    let career = loadJson<Career>(KEYS.career);
+    let career = repo.load('career');
     if (!career || !Array.isArray(career.entries)) career = persistCareer(newCareer(world, Math.floor(Math.random() * 2 ** 31)));
     const screen: Screen = career.startOptions?.length && !career.nationId ? 'careerStart' : 'careerHome';
     setG((prev) => ({ ...FRESH, mode: 'career', career, screen, cut: prev.cut }));
@@ -264,12 +248,12 @@ function MainApp() {
           onAchievements={() => go({ screen: 'achievements' })}
           modes={{
             onCareer: openCareer,
-            hasCareer: !!loadJson<Career>(KEYS.career)?.entries,
+            hasCareer: !!repo.load('career')?.entries,
             onDaily: () => {
               registerCustom(undefined);
               go({ mode: 'daily', dailyDate: todayIso(), screen: 'dailyIntro' });
             },
-            dailyDone: !!loadJson<Record<string, DailyRecord>>(KEYS.daily)?.[todayIso()],
+            dailyDone: !!repo.load('daily')?.[todayIso()],
             onDraft: () => go({ mode: 'draft', screen: 'draftSetup' }),
             onReady: () => {
               registerCustom(undefined);
@@ -285,7 +269,7 @@ function MainApp() {
         <DailyIntro
           date={g.dailyDate}
           team={dailyTeam(world, g.dailyDate)}
-          best={loadJson<Record<string, DailyRecord>>(KEYS.daily)?.[g.dailyDate]}
+          best={repo.load('daily')?.[g.dailyDate]}
           onBack={() => go({ screen: 'home' })}
           onPlay={() => go({ nationId: dailyTeam(world, g.dailyDate as string).id, called: [], lineup: undefined, scored: undefined, tournament: undefined, screen: 'squad' })}
         />
@@ -309,7 +293,7 @@ function MainApp() {
           career={g.career}
           onBack={() => go({ screen: 'home' })}
           onAbandon={() => {
-            removeKey(KEYS.career);
+            repo.remove('career');
             resetAll();
           }}
           onPlay={() => {
