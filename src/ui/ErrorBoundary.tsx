@@ -11,13 +11,13 @@ interface State {
  * página em branco. O progresso salvo (carreira, conquistas, ranking) fica no navegador e sobrevive ao recarregamento.
  */
 export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
-  state: State = { copied: false };
+  override state: State = { copied: false };
 
   static getDerivedStateFromError(error: unknown): State {
     return { error, copied: false };
   }
 
-  componentDidCatch(error: unknown, info: ErrorInfo): void {
+  override componentDidCatch(error: unknown, info: ErrorInfo): void {
     console.error('Erro na interface:', error, info.componentStack);
   }
 
@@ -32,12 +32,12 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
     this.setState({ error: ev.reason, copied: false });
   };
 
-  componentDidMount(): void {
+  override componentDidMount(): void {
     window.addEventListener('error', this.onWindowError);
     window.addEventListener('unhandledrejection', this.onRejection);
   }
 
-  componentWillUnmount(): void {
+  override componentWillUnmount(): void {
     window.removeEventListener('error', this.onWindowError);
     window.removeEventListener('unhandledrejection', this.onRejection);
   }
@@ -51,7 +51,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
     }
   };
 
-  render(): ReactNode {
+  override render(): ReactNode {
     if (this.state.error === undefined) return this.props.children;
     const text = describeError(this.state.error);
     return (

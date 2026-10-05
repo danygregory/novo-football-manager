@@ -13,7 +13,8 @@
     "calibrate": "tsx scripts/calibrate.ts",
     "draft-balance": "tsx scripts/draft-balance.ts",
     "golden": "tsx scripts/golden.ts",
-    "licenses": "tsx scripts/licenses.ts"
+    "licenses": "tsx scripts/licenses.ts",
+    "modes-balance": "tsx scripts/modes-balance.ts"
   },
   "dependencies": {
     "pixi.js": "^8.22.0",

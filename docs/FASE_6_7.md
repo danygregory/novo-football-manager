@@ -15,16 +15,17 @@
 
 ## Reputação na carreira
 
-Depois de cada Copa:
+Depois de cada Copa (pesos ajustados no balanceamento, ver [BALANCE_MODOS.md](BALANCE_MODOS.md)):
 
 ```
-delta = 7 x desempenho + 5 x (etapa alcançada - etapa esperada) + 6 se campeão     (limitado de -18 a +30)
+delta = 7 x f(desempenho) + 5 x f(etapa alcançada - etapa esperada) + 6 se campeão + 2 de presença     (de -14 a +30)
+f(x)  = x se positivo; 0,6 x se negativo (o fracasso pesa menos que o acerto)
 desempenho = soma de (resultado - esperado pelo Elo) em cada jogo
 etapa esperada pela posição de força entre as 32: 1º-2º 3,6 · 3º-4º 3,0 · 5º-8º 2,2 · 9º-16º 1,2 · 17º-24º 0,6 · 25º-32º 0,25
 etapa: 0 grupos, 1 oitavas, 2 quartas, 3 semifinal, 4 vice, 5 campeão
 ```
 
-Número de convites: 3 para campeão ou delta >= 12; 2 para delta >= 5; 1 para delta >= -2; 0 abaixo disso. Os convites são seleções-era cujo percentil de força no mundo fica entre `reputação - 22` e `reputação + 14`, de países diferentes do atual.
+Número de convites: 3 para campeão ou delta >= 12; 2 para delta >= 5; 1 para delta >= -8; 0 abaixo disso. Os convites são seleções-era cujo percentil de força no mundo fica entre `reputação - 25` e `reputação + 18`, de países diferentes do atual.
 
 ## Pontuação
 

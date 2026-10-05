@@ -81,10 +81,17 @@ export function evaluateCup(worldIn: World, t: Tournament): CupEvaluation {
   return { stage, w, d, l, gf, ga, perf, expectedStage: expectedStage(rank), pot: (Math.min(4, Math.floor((rank - 1) / 8) + 1)) as 1 | 2 | 3 | 4, rank, champion };
 }
 
-/** Variação da reputação: campanha acima do esperado sobe, fracasso cai. */
+/** Pesos da reputação: desempenho nos jogos, etapa alcançada contra a esperada, título e a "presença" por disputar a Copa. */
+export const REP = { perf: 7, stage: 5, champion: 6, participation: 2, /** fracassos pesam este tanto do que pesam as vitórias */ lossFactor: 0.6, min: -14, max: 30 } as const;
+
+/**
+ * Variação da reputação: campanha acima do esperado para a força do time sobe, fracasso cai (um pouco menos do que um acerto
+ * sobe, para o técnico conseguir se reerguer), e disputar a Copa já rende uma pequena presença.
+ */
 export function reputationDelta(ev: CupEvaluation): number {
-  const raw = 7 * ev.perf + 5 * (ev.stage - ev.expectedStage) + (ev.champion ? 6 : 0);
-  return Math.max(-18, Math.min(30, Math.round(raw)));
+  const f = (x: number) => (x > 0 ? x : REP.lossFactor * x);
+  const raw = REP.perf * f(ev.perf) + REP.stage * f(ev.stage - ev.expectedStage) + (ev.champion ? REP.champion : 0) + REP.participation;
+  return Math.max(REP.min, Math.min(REP.max, Math.round(raw)));
 }
 
 export const clampRep = (v: number) => Math.max(0, Math.min(100, Math.round(v)));
@@ -159,15 +166,15 @@ export function newCareer(world: World, seed: number): Career {
 export function offerCount(delta: number, champion: boolean): number {
   if (champion || delta >= 12) return 3;
   if (delta >= 5) return 2;
-  if (delta >= -2) return 1;
+  if (delta >= -8) return 1;
   return 0;
 }
 
 /** Convites compatíveis com a reputação: seleções-era cujo percentil de força fica perto dela. */
 export function makeOffers(world: World, rep: number, seed: number, count: number, currentCode?: string): string[] {
   if (count <= 0) return [];
-  const lo = rep - 22;
-  const hi = rep + 14;
+  const lo = rep - 25;
+  const hi = rep + 18;
   const pool = world.nations.filter((n) => {
     const p = worldPercentile(world, n.elo);
     return n.code !== currentCode && p >= lo && p <= hi;

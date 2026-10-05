@@ -32,6 +32,7 @@ npm run dev        # abre em http://localhost:5173
 | `npm run build-world` | Recalcula `data/world.json` e `data/summaries.json` a partir de `data/raw/` (reproduz os mesmos arquivos) |
 | `npm run calibrate` | Simula 20.000 jogos e confere gols por jogo, empates, curva de força e média por década |
 | `npm run draft-balance` | Simula 1.000 drafts de um robô guloso: precisa ser campeão em menos de 40% das Copas |
+| `npm run modes-balance` | Robô cumpre carreiras, desafios do dia e Copas comuns: curva de reputação, dificuldade e frequência das conquistas |
 | `npm run golden` | Confere que o motor produz exatamente os mesmos resultados do baseline (refatorações seguras) |
 | `npm run licenses` | Regera `THIRD_PARTY_NOTICES.md` |
 
@@ -58,6 +59,7 @@ docs/         plano, dados, calibração, fases e segurança
 - [docs/DADOS.md](docs/DADOS.md): fontes, licenças e como o mundo é gerado
 - [docs/CALIBRACAO.md](docs/CALIBRACAO.md): metas, parâmetros finais e balanceamento do draft
 - [docs/DESEMPENHO.md](docs/DESEMPENHO.md): medidas e limpeza
+- [docs/BALANCE_MODOS.md](docs/BALANCE_MODOS.md): balanceamento da carreira, do desafio do dia e das conquistas
 - [docs/FASE_6_5.md](docs/FASE_6_5.md), [docs/FASE_6_7.md](docs/FASE_6_7.md): partida viva, modos de jogo e segurança
 - [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md): licenças de terceiros
 

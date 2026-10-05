@@ -12,7 +12,7 @@ import { Cup } from './screens/Cup';
 import { CupEnd } from './screens/CupEnd';
 import { Achievements } from './screens/Achievements';
 import { DailyIntro, DailyShare } from './screens/Daily';
-import { bestOfDay, dailySeed, dailyTeam, shareText, type DailyRecord } from '../engine/daily';
+import { bestOfDay, dailyCut, dailySeed, dailyTeam, shareText, type DailyRecord } from '../engine/daily';
 import { ScoreCard } from './screens/ScoreCard';
 import { addToRanking, newAchievements, rankingEntry, summarizeCup, type Achievement, type CupSummary, type RankingEntry } from '../engine/scoring';
 import { CareerAfterCup, CareerChoose, CareerHome } from './screens/Career';
@@ -353,7 +353,7 @@ function MainApp() {
             } else if (g.mode === 'daily' && g.dailyDate) {
               // desafio do dia: a seed vem da data, então todos jogam a mesma Copa
               go({ lineup });
-              void startCup(lineup, 'all', dailySeed(g.dailyDate));
+              void startCup(lineup, dailyCut(world, dailyTeam(world, g.dailyDate)), dailySeed(g.dailyDate));
             } else go({ lineup, screen: 'cupSetup' });
           }}
         />

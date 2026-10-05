@@ -9,7 +9,7 @@ export function DailyIntro({ date, team, best, onPlay, onBack }: { date: string;
       <div className="row between" style={{ marginBottom: 12 }}>
         <div>
           <h2>Desafio do dia · {date}</h2>
-          <div className="muted">Todos recebem a mesma seleção fraca e a mesma Copa (adversários, grupos e chaveamento). Dá para jogar de novo; vale o melhor resultado do dia.</div>
+          <div className="muted">Todos recebem a mesma seleção fraca e a mesma Copa (adversários da mesma época, grupos e chaveamento). Dá para jogar de novo; vale o melhor resultado do dia.</div>
         </div>
         <button className="ghost" onClick={onBack}>Voltar</button>
       </div>

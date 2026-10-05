@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import worldJson from '../../data/world.json';
 import { squadOf } from '../data/squads';
 import {
+  REP,
   START_REPUTATION,
   applyCup,
   careerCut,
@@ -99,6 +100,21 @@ describe('carreira: reputação', () => {
   });
 });
 
+describe('carreira: reputação (equilíbrio)', () => {
+  it('o fracasso pesa menos que o acerto de mesmo tamanho, e disputar a Copa já rende uma presença', () => {
+    const up = reputationDelta(ev({ stage: 2, expectedStage: 1.2, perf: 0 })); // +0,8 etapa
+    const down = reputationDelta(ev({ stage: 1, expectedStage: 1.2 + 0.8 - 0.2 + 0, perf: 0 })); // -0,8 etapa
+    expect(up).toBeGreaterThan(0);
+    expect(Math.abs(Math.min(0, down - REP.participation))).toBeLessThan(up - REP.participation + 0.001);
+    expect(reputationDelta(ev({ stage: 1, expectedStage: 1, perf: 0 }))).toBe(REP.participation);
+  });
+
+  it('o piso de uma campanha desastrosa não derruba a reputação de vez', () => {
+    expect(reputationDelta(ev({ stage: 0, expectedStage: 5, perf: -10 }))).toBe(REP.min);
+    expect(REP.min).toBeGreaterThanOrEqual(-14);
+  });
+});
+
 describe('carreira: convites', () => {
   it('a quantidade depende do desempenho: de 0 a 3', () => {
     expect(offerCount(-10, false)).toBe(0);
@@ -118,8 +134,8 @@ describe('carreira: convites', () => {
       for (const n of nations) {
         expect(n.code).not.toBe('BRA');
         const p = worldPercentile(world, n.elo);
-        expect(p).toBeGreaterThanOrEqual(rep - 22);
-        expect(p).toBeLessThanOrEqual(rep + 14);
+        expect(p).toBeGreaterThanOrEqual(rep - 25);
+        expect(p).toBeLessThanOrEqual(rep + 18);
       }
     }
     expect(makeOffers(world, 50, 1, 0)).toEqual([]);

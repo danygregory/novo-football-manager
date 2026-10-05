@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import worldJson from '../../data/world.json';
-import { worldPot } from './career';
-import { bestOfDay, dailySeed, dailyTeam, shareText } from './daily';
+import { worldPercentile, worldPot } from './career';
+import { bestOfDay, dailyCut, dailySeed, dailyTeam, shareText } from './daily';
 import { squadOf } from '../data/squads';
 import { autoLineup, autoSquad23, tacticsForStyle } from './lineup';
 import type { CupSummary } from './scoring';
@@ -19,15 +19,26 @@ describe('desafio do dia', () => {
     expect(teams.size).toBeGreaterThan(15);
   });
 
-  it('a seleção do dia é sempre fraca (pote 4)', () => {
-    for (let i = 1; i <= 60; i++) expect(worldPot(world, dailyTeam(world, `2026-12-${String((i % 28) + 1).padStart(2, '0')}-${i}`).elo)).toBe(4);
+  it('a seleção do dia é sempre fraca (potes 3 e 4 do mundo)', () => {
+    for (let i = 1; i <= 60; i++) expect(worldPot(world, dailyTeam(world, `2026-12-${String((i % 28) + 1).padStart(2, '0')}-${i}`).elo)).toBeGreaterThanOrEqual(3);
+  });
+
+  it('a seleção do dia não é a pior de todas (percentil 18 a 32) e a Copa é da época dela', () => {
+    for (let i = 1; i <= 40; i++) {
+      const date = `2027-01-${String((i % 28) + 1).padStart(2, '0')}-${i}`;
+      const team = dailyTeam(world, date);
+      const p = worldPercentile(world, team.elo);
+      expect(p).toBeGreaterThanOrEqual(18);
+      expect(p).toBeLessThanOrEqual(32);
+      expect(dailyCut(world, team)).toBe(team.decade);
+    }
   });
 
   it('todos recebem a mesma Copa: mesmos adversários, grupos e chaveamento', () => {
     const mk = (date: string) => {
       const n = dailyTeam(world, date);
       const squad = autoSquad23(squadOf(n));
-      return createTournament(world, n.id, squad.map((p) => p.id), autoLineup(n.id, squad, tacticsForStyle(n.playStyle)), dailySeed(date), { cut: 'all' });
+      return createTournament(world, n.id, squad.map((p) => p.id), autoLineup(n.id, squad, tacticsForStyle(n.playStyle)), dailySeed(date), { cut: dailyCut(world, n) });
     };
     const a = mk('2026-10-04');
     const b = mk('2026-10-04');
