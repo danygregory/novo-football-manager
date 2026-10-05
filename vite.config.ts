@@ -34,5 +34,6 @@ export default defineConfig({
   base: './',
   plugins: [react(), cspPlugin()],
   worker: { format: 'es' },
-  test: { include: ['src/**/*.test.ts', 'scripts/**/*.test.ts'], environment: 'node' },
+  // 30 s: alguns testes de dados e calibração levam 3 a 5 s em máquina rápida e estouram os 5 s padrão no runner do CI
+  test: { include: ['src/**/*.test.ts', 'scripts/**/*.test.ts'], environment: 'node', testTimeout: 30_000 },
 });
