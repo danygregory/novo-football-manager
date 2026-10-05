@@ -4,7 +4,7 @@ import { fit } from '../../engine/lineup';
 import { overall } from '../../engine/player';
 import type { Formation, Player, Position, Slot } from '../../engine/types';
 import { canPlace, pick, pickError, pickedIds, reroll, rollSquad, RESERVES, type DraftState } from '../../data/draft';
-import { ATTR_LABEL, Kit, PosPill } from '../components/common';
+import { ATTR_LABEL, Kit, PosPill, rowActivate } from '../components/common';
 import { nationLabel, world } from '../world';
 
 /** Linhas do campo de cada formação (índices dos slots), do gol ao ataque. */
@@ -140,7 +140,7 @@ export function DraftBoard({ state, onChange, onFinish, onBack }: { state: Draft
                   </thead>
                   <tbody>
                     {rows.map((p: Player) => (
-                      <tr key={p.id} className={`clickable ${sel === p.id ? 'called' : ''} ${taken.has(p.id) ? 'taken' : ''}`} onClick={() => !taken.has(p.id) && setSel(p.id)}>
+                      <tr key={p.id} className={`clickable ${sel === p.id ? 'called' : ''} ${taken.has(p.id) ? 'taken' : ''}`} {...rowActivate(() => !taken.has(p.id) && setSel(p.id), sel === p.id)}>
                         <td><PosPill p={p} /></td>
                         <td>{p.name}</td>
                         <td className="num">{p.age}</td>

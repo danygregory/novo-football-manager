@@ -4,7 +4,7 @@ import type { Decision, LiveState, MatchCommand, Shout, TalkTone } from '../../e
 import { SHOUT_MINUTES } from '../../engine/match';
 import { overall } from '../../engine/player';
 import type { Tactics } from '../../engine/types';
-import { Bar, NationName, PosPill, StatBars } from '../components/common';
+import { Bar, NationName, PosPill, StatBars, rowActivate } from '../components/common';
 import { nationsById, playerById } from '../world';
 
 export type Send = (cmd: MatchCommand) => void;
@@ -54,7 +54,7 @@ export function TeamPanel({ state, userSide, onPick }: { state: LiveState; userS
             const rating = state.ratings[p.id] ?? 6;
             const alert = p.cond < 60 || rating < 5.6;
             return (
-              <tr key={p.id} className={`clickable ${alert ? 'blink' : ''}`} onClick={() => onPick(p.id)} title={alert ? 'Cansado ou mal na partida: clique para trocar' : 'Clique para trocar'}>
+              <tr key={p.id} className={`clickable ${alert ? 'blink' : ''}`} {...rowActivate(() => onPick(p.id))} title={alert ? 'Cansado ou mal na partida: clique para trocar' : 'Clique para trocar'}>
                 <td><PosPill p={{ position: pl.position, slot: p.slot }} /></td>
                 <td>{pl.name.split(' ').slice(-1)[0]}</td>
                 <td className="num">{rating.toFixed(1)}</td>
@@ -97,7 +97,7 @@ export function QuickSub({ state, userSide, outId, busy, onConfirm, onClose }: {
         <table>
           <tbody>
             {list.slice(0, 7).map(({ b, pl }, i) => (
-              <tr key={b.id} className="clickable" onClick={() => !busy && side.subsLeft > 0 && onConfirm(b.id)}>
+              <tr key={b.id} className="clickable" {...rowActivate(() => !busy && side.subsLeft > 0 && onConfirm(b.id))}>
                 <td><PosPill p={pl} /></td>
                 <td>{pl.name}{i === 0 ? ' ★' : ''}</td>
                 <td className="num"><b>{Math.round(overall(pl))}</b></td>
@@ -141,7 +141,7 @@ export function ChangesPanel({ state, userSide, busy, onClose, send, embedded }:
               {outs.map((p) => {
                 const pl = playerById(p.id)!;
                 return (
-                  <tr key={p.id} className={`clickable ${out === p.id ? 'called' : ''}`} onClick={() => { setOut(p.id); setInn(''); }}>
+                  <tr key={p.id} className={`clickable ${out === p.id ? 'called' : ''}`} {...rowActivate(() => { setOut(p.id); setInn(''); }, out === p.id)}>
                     <td><PosPill p={{ position: pl.position, slot: p.slot }} /></td>
                     <td>{pl.name}</td>
                     <td className="num">{(state.ratings[p.id] ?? 6).toFixed(1)}</td>
@@ -156,7 +156,7 @@ export function ChangesPanel({ state, userSide, busy, onClose, send, embedded }:
           <table>
             <tbody>
               {(out ? suggestions(state, userSide, out) : side.bench.map((b) => ({ b, pl: playerById(b.id)! }))).map(({ b, pl }) => (
-                <tr key={b.id} className={`clickable ${inn === b.id ? 'called' : ''}`} onClick={() => setInn(b.id)}>
+                <tr key={b.id} className={`clickable ${inn === b.id ? 'called' : ''}`} {...rowActivate(() => setInn(b.id), inn === b.id)}>
                   <td><PosPill p={pl} /></td>
                   <td>{pl.name}</td>
                   <td className="num"><b>{Math.round(overall(pl))}</b></td>
@@ -179,7 +179,7 @@ export function ChangesPanel({ state, userSide, busy, onClose, send, embedded }:
           {([['pressing', 'Pressão'], ['lineHeight', 'Linha'], ['tempo', 'Ritmo']] as const).map(([k, label]) => (
             <div key={k} className="slider">
               <span>{label}</span>
-              <input type="range" min={0} max={100} value={Math.round(tac[k] * 100)} onChange={(e) => setTac({ ...tac, [k]: Number(e.target.value) / 100 })} />
+              <input type="range" aria-label={label} min={0} max={100} value={Math.round(tac[k] * 100)} onChange={(e) => setTac({ ...tac, [k]: Number(e.target.value) / 100 })} />
               <span className="muted">{Math.round(tac[k] * 100)}%</span>
             </div>
           ))}
@@ -271,7 +271,7 @@ export function DecisionModal({ state, userSide, decision, busy, send }: { state
             <table>
               <tbody>
                 {list.slice(0, 6).map(({ b, pl: r }, i) => (
-                  <tr key={b.id} className="clickable" onClick={() => !busy && answer(b.id)}>
+                  <tr key={b.id} className="clickable" {...rowActivate(() => !busy && answer(b.id))}>
                     <td><PosPill p={r} /></td>
                     <td>{r.name}{i === 0 ? ' ★' : ''}</td>
                     <td className="num"><b>{Math.round(overall(r))}</b></td>
@@ -327,7 +327,7 @@ export function DecisionModal({ state, userSide, decision, busy, send }: { state
               {takers.slice(0, 8).map(({ p }, i) => {
                 const pl = playerById(p.id)!;
                 return (
-                  <tr key={p.id} className="clickable" onClick={() => !busy && answer(p.id)}>
+                  <tr key={p.id} className="clickable" {...rowActivate(() => !busy && answer(p.id))}>
                     <td><PosPill p={{ position: pl.position, slot: p.slot }} /></td>
                     <td>{pl.name}{i === 0 ? ' ★' : ''}</td>
                     <td className="num">FIN {pl.attrs.finalizacao}</td>

@@ -93,7 +93,7 @@ export function Tactics({ nationId, called, cond, initial, initialFormation, con
             <div key={c.key}>
               <div className="slider">
                 <span>{c.label}</span>
-                <input type="range" min={0} max={100} value={Math.round(tactics[c.key] * 100)} onChange={(e) => setTactics({ ...tactics, [c.key]: Number(e.target.value) / 100 })} />
+                <input type="range" aria-label={c.label} min={0} max={100} value={Math.round(tactics[c.key] * 100)} onChange={(e) => setTactics({ ...tactics, [c.key]: Number(e.target.value) / 100 })} />
                 <span className="muted">{Math.round(tactics[c.key] * 100)}%</span>
               </div>
               <p className="hint">{tactics[c.key] >= 0.5 ? c.high : c.low}</p>
@@ -121,7 +121,7 @@ export function Tactics({ nationId, called, cond, initial, initialFormation, con
             return (
               <div key={i} className="slot-row">
                 <span className={`pill pos-${slot === 'GK' ? 'GK' : ['CB', 'LB', 'RB', 'WB'].includes(slot) ? 'DEF' : ['DM', 'CM', 'AM'].includes(slot) ? 'MID' : 'FWD'}`}>{slot}</span>
-                <select value={starters[i]} onChange={(e) => setStarter(i, e.target.value)}>
+                <select aria-label={`Titular ${slot}`} value={starters[i]} onChange={(e) => setStarter(i, e.target.value)}>
                   {players.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name} · {c.slot} · {Math.round(overall(c))}

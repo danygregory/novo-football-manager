@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { autoSquad23 } from '../../engine/lineup';
 import type { Player, Position } from '../../engine/types';
-import { ATTR_LABEL, Bar, NationName, PosPill, ovr } from '../components/common';
+import { ATTR_LABEL, Bar, NationName, PosPill, ovr, rowActivate } from '../components/common';
 import { squadOf } from '../../data/squads';
 import { nationsById } from '../world';
 
@@ -80,14 +80,14 @@ export function Squad({
           </thead>
           <tbody>
             {rows.map((p) => (
-              <tr key={p.id} className={`${readOnly ? '' : 'clickable'} ${called.has(p.id) ? 'called' : ''}`} onClick={() => toggle(p)}>
-                <td>{!readOnly && <input type="checkbox" readOnly checked={called.has(p.id)} />}</td>
+              <tr key={p.id} className={`${readOnly ? '' : 'clickable'} ${called.has(p.id) ? 'called' : ''}`} {...(readOnly ? {} : rowActivate(() => toggle(p), called.has(p.id)))}>
+                <td>{!readOnly && <input type="checkbox" readOnly tabIndex={-1} aria-label={`Convocado: ${p.name}`} checked={called.has(p.id)} />}</td>
                 <td>{p.name}</td>
                 <td><PosPill p={p} /></td>
                 <td className="num">{p.age}</td>
                 <td className="muted">{p.style}</td>
                 {ATTR_LABEL.map(([k]) => (
-                  <td key={k} className="num" style={{ opacity: k === 'goleiro' && p.position !== 'GK' ? 0.35 : 1 }}>{p.attrs[k]}</td>
+                  <td key={k} className="num" style={k === 'goleiro' && p.position !== 'GK' ? { color: 'var(--muted)' } : undefined}>{p.attrs[k]}</td>
                 ))}
                 <td className="num"><b>{ovr(p)}</b></td>
                 <td style={{ width: 90 }}><Bar value={cond?.[p.id] ?? p.condition} kind="cond" /></td>

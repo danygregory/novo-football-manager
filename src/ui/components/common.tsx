@@ -1,6 +1,23 @@
+import type { KeyboardEvent } from 'react';
 import type { Attributes, MatchEvent, NationEra, Player, TeamMatchStats } from '../../engine/types';
 import { overall } from '../../engine/player';
 import { nationLabel } from '../world';
+
+/** Linha de tabela clicável também por teclado (Tab para focar, Enter ou Espaço para ativar). */
+export function rowActivate(onActivate: () => void, selected?: boolean) {
+  return {
+    tabIndex: 0,
+    'aria-selected': selected,
+    onClick: onActivate,
+    onKeyDown: (e: KeyboardEvent) => {
+      if (e.target !== e.currentTarget) return;
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onActivate();
+      }
+    },
+  };
+}
 
 export function Kit({ nation }: { nation: Pick<NationEra, 'colors'> }) {
   return <span className="kit" style={{ background: `linear-gradient(90deg, ${nation.colors.primary} 50%, ${nation.colors.secondary} 50%)` }} />;

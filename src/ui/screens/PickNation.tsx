@@ -3,7 +3,7 @@ import type { Continent, Decade, NationEra } from '../../engine/types';
 import { squadOf } from '../../data/squads';
 import { useSummary } from '../summaries';
 import { eraSpan, world } from '../world';
-import { Bar, Kit, STYLE_LABEL } from '../components/common';
+import { Bar, Kit, STYLE_LABEL, rowActivate } from '../components/common';
 
 const CONTINENT_LABEL: Record<Continent, string> = { EU: 'Europa', SA: 'América do Sul', NA: 'América do Norte/Central', AF: 'África', AS: 'Ásia', OC: 'Oceania' };
 const DECADES: Decade[] = [1930, 1940, 1950, 1960, 1970, 1980, 1990, 2000, 2010, 2020];
@@ -98,7 +98,7 @@ export function PickNation({ initial, onPick, onBack }: { initial?: string; onPi
           </thead>
           <tbody>
             {rows.map((n: NationEra) => (
-              <tr key={n.id} className={`clickable ${sel === n.id ? 'called' : ''}`} onClick={() => setSel(n.id)} onDoubleClick={() => onPick(n.id)}>
+              <tr key={n.id} className={`clickable ${sel === n.id ? 'called' : ''}`} {...rowActivate(() => setSel(n.id), sel === n.id)} onDoubleClick={() => onPick(n.id)}>
                 <td><Kit nation={n} />{n.country}</td>
                 <td>{eraSpan(n)}</td>
                 <td className="muted">{CONTINENT_LABEL[n.continent]}</td>

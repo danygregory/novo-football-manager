@@ -604,6 +604,7 @@ export function LiveMatch({ start, speed0, reduced, onSpeed, onFinished, onBack 
           <TeamPanel state={m.state} userSide={userSide} onPick={pickQuick} />
         <div className="panel feed">
           <h3>Narração</h3>
+          <div role="log" aria-live="polite" aria-relevant="additions" aria-label="Narração da partida">
           <ul ref={feedEl} className="timeline">
             {m.feed.map((e) => (
               <li key={e.key} className={`${e.goal ? 'mvp' : ''} ${e.mine ? '' : 'opp'} ${e.kind === 'build' ? 'build' : ''} ${e.big ? 'big' : ''}`}>
@@ -611,6 +612,7 @@ export function LiveMatch({ start, speed0, reduced, onSpeed, onFinished, onBack 
               </li>
             ))}
           </ul>
+          </div>
           <div className="muted" style={{ fontSize: '.8rem' }}>Trocas restantes: {side.subsLeft}</div>
         </div>
         </div>

@@ -60,6 +60,8 @@ export class PitchView {
       this.app.destroy(true);
       return;
     }
+    this.app.canvas.setAttribute('role', 'img');
+    this.app.canvas.setAttribute('aria-label', 'Campo de jogo em 2D; a narração da partida está ao lado, em texto');
     this.host.appendChild(this.app.canvas);
     this.app.canvas.style.width = '100%';
     this.app.canvas.style.height = 'auto';
