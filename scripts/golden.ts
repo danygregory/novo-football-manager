@@ -37,5 +37,9 @@ if (process.argv.includes('--update') || !existsSync(BASE)) {
   }
   const diffs = out.map((h, i) => (h === base[i] ? -1 : i)).filter((i) => i >= 0);
   console.log(diffs.length === 0 ? `OK: ${out.length} partidas idênticas ao baseline` : `DIFERENTE em ${diffs.length} partidas (primeiras: ${diffs.slice(0, 8).join(', ')}). Mudança de propósito? Suba ENGINE_VERSION e rode --update.`);
-  if (diffs.length) process.exitCode = 1;
+  if (diffs.length) {
+    process.exitCode = 1;
+    // no CI, vira anotação legível pela API (os logs só abrem com login): versão do Node/V8, plataforma e os hashes calculados
+    if (process.env.GITHUB_ACTIONS) console.log(`::error title=golden diferente::node ${process.version} v8 ${process.versions.v8} ${process.platform}/${process.arch}; diferentes: ${diffs.join(',')}; hashes: ${out.join(',')}`);
+  }
 }
