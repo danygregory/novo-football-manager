@@ -32,6 +32,7 @@ npm run dev        # abre em http://localhost:5173
 | `npm run build-world` | Recalcula `data/world.json` e `data/summaries.json` a partir de `data/raw/` (reproduz os mesmos arquivos) |
 | `npm run calibrate` | Simula 20.000 jogos e confere gols por jogo, empates, curva de força e média por década |
 | `npm run draft-balance` | Simula 1.000 drafts de um robô guloso: precisa ser campeão em menos de 40% das Copas |
+| `npm run e2e` | Testes de ponta a ponta (Playwright) sobre o build de produção: Copa inteira, partida ao vivo, save adulterado, CSP. Local usa o Chrome instalado; no CI, `npx playwright install chromium` |
 | `npm run modes-balance` | Robô cumpre carreiras, desafios do dia e Copas comuns: curva de reputação, dificuldade e frequência das conquistas |
 | `npm run golden` | Confere que o motor produz exatamente os mesmos resultados do baseline (refatorações seguras) |
 | `npm run licenses` | Regera `THIRD_PARTY_NOTICES.md` |

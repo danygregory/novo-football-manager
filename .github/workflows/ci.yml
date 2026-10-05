@@ -35,3 +35,25 @@ jobs:
         run: npm run build
       - name: Auditoria das dependências
         run: npm audit --audit-level=high
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Chromium do Playwright
+        run: npx playwright install --with-deps chromium
+      - name: Testes de ponta a ponta (build de produção, Copa inteira, partida ao vivo, save adulterado, CSP)
+        run: npm run e2e
+      - name: Relatório do Playwright (só se falhar)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 7

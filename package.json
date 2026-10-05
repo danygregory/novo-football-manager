@@ -14,7 +14,8 @@
     "draft-balance": "tsx scripts/draft-balance.ts",
     "golden": "tsx scripts/golden.ts",
     "licenses": "tsx scripts/licenses.ts",
-    "modes-balance": "tsx scripts/modes-balance.ts"
+    "modes-balance": "tsx scripts/modes-balance.ts",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "pixi.js": "^8.22.0",
@@ -22,6 +23,7 @@
     "react-dom": "^19.3.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/node": "^26.6.4",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
