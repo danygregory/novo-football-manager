@@ -13,7 +13,8 @@ import { SCENARIOS, scenarioById, scenarioResult, type Scenario, type ScenarioRe
 import { autoLineup, autoSquad23, tacticsForStyle } from '../engine/lineup';
 import { ScenarioList, ScenarioOutcome } from './screens/Scenarios';
 import { repo, todayIso } from './store';
-import type { Settings } from '../save';
+import { applyImport, exportSave, parseSave, type Run, type Settings } from '../save';
+import { syncNames } from './names';
 import { DEFAULT_SPEED, type Speed } from './speed';
 import { engine } from './engineClient';
 import { Cup } from './screens/Cup';
@@ -95,6 +96,9 @@ function MainApp() {
   };
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const [homeMsg, setHomeMsg] = useState<{ ok: boolean; text: string }>();
+  /** Copa ou cenário salvo (lido de novo a cada volta à tela inicial). */
+  const [savedRun, setSavedRun] = useState<Run | undefined>(() => repo.load('run'));
 
   const go = (patch: Partial<Game>) => setG((prev) => ({ ...prev, ...patch }));
 
@@ -253,6 +257,88 @@ function MainApp() {
     setG((prev) => ({ ...FRESH, mode: 'career', career, screen, cut: prev.cut }));
   };
 
+  // Copa ou cenário em andamento: salva a cada mudança de rodada (não no meio da partida: ela recomeça do apito, com a mesma seed)
+  useEffect(() => {
+    const tt = g.tournament;
+    if (!tt || !g.mode) return;
+    if (g.scored || g.scenarioOutcome) {
+      // o resultado já virou pontos, ranking e conquistas: a Copa salva não serve mais
+      repo.remove('run');
+      setSavedRun(undefined);
+      return;
+    }
+    const mode = g.mode;
+    const r: Run = {
+      v: 1,
+      savedAt: new Date().toISOString(),
+      mode,
+      tournament: tt,
+      ...(g.dailyDate ? { dailyDate: g.dailyDate } : {}),
+      ...(g.scenario ? { scenarioId: g.scenario.id } : {}),
+      ...(g.challenge ? { challenge: { nationId: g.challenge.nationId, cut: g.challenge.cut, seed: g.challenge.seed, points: g.challenge.points, stage: g.challenge.stage } } : {}),
+    };
+    repo.save('run', r);
+    setSavedRun(r);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [g.tournament, g.scored, g.scenarioOutcome]);
+
+  const resumeRun = (r: Run) => {
+    const tt = r.tournament;
+    registerCustom(tt.custom);
+    const scenario = r.scenarioId ? scenarioById(r.scenarioId) : undefined;
+    const challenge = r.challenge ? ({ kind: 'cup', ...r.challenge } as Extract<Challenge, { kind: 'cup' }>) : undefined;
+    const screen: Screen = tt.stage === 'DONE' ? (tt.scenario ? 'scenarioEnd' : 'end') : tt.scenario ? 'match' : 'cup';
+    setG({
+      ...FRESH,
+      mode: r.mode,
+      tournament: tt,
+      nationId: tt.userNationId,
+      called: tt.squads[tt.userNationId] ?? [],
+      lineup: tt.userLineup,
+      cut: tt.cut,
+      dailyDate: r.dailyDate,
+      scenario,
+      challenge,
+      career: r.mode === 'career' ? repo.load('career') : undefined,
+      screen,
+    });
+  };
+
+  const exportAll = () => {
+    const blob = new Blob([exportSave(repo)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `novo-fm-save-${todayIso()}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    setHomeMsg({ ok: true, text: 'Save exportado. Guarde o arquivo: ele leva toda a sua carreira, conquistas e a Copa em andamento.' });
+  };
+
+  const importFile = async (file: File) => {
+    if (file.size > 2_000_000) return setHomeMsg({ ok: false, text: 'Arquivo grande demais para ser um save do jogo.' });
+    const parsed = parseSave(await file.text(), (nid) => nationsById.has(nid));
+    if (!parsed.ok) return setHomeMsg({ ok: false, text: parsed.error });
+    if (!confirm('Importar este save substitui todo o progresso guardado neste navegador (carreira, conquistas, ranking, Copa em andamento). Continuar?')) return;
+    applyImport(repo, parsed.data);
+    syncNames();
+    setSavedRun(repo.load('run'));
+    setHomeMsg({ ok: true, text: 'Save importado.' });
+  };
+
+  const runInfo = savedRun
+    ? (() => {
+        const tt = savedRun.tournament;
+        const n = nationsById.get(tt.userNationId) ?? tt.custom;
+        const sc = savedRun.scenarioId ? scenarioById(savedRun.scenarioId) : undefined;
+        return {
+          label: sc ? `${sc.title}` : n ? nationLabel(n) : tt.userNationId,
+          stage: sc ? 'Cenário' : STAGE_LABEL[tt.stage],
+          savedAt: new Date(savedRun.savedAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }),
+        };
+      })()
+    : undefined;
+
   // link de desafio no endereço (#c=...): abre a tela do desafio e limpa o hash para não reabrir ao recarregar
   useEffect(() => {
     const open = () => {
@@ -353,8 +439,12 @@ function MainApp() {
 
       {g.screen === 'home' && (
         <Home
-          canLoad={false}
-          onLoad={() => undefined}
+          resume={runInfo}
+          onResume={() => savedRun && resumeRun(savedRun)}
+          onDiscard={() => { if (confirm('Descartar a Copa em andamento?')) { repo.remove('run'); setSavedRun(undefined); } }}
+          onExport={exportAll}
+          onImport={(f) => void importFile(f)}
+          message={homeMsg}
           onAchievements={() => go({ screen: 'achievements' })}
           modes={{
             onCareer: openCareer,

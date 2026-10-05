@@ -7,14 +7,14 @@ import type { Career, CareerEntry, DailyRecord, Lineup, RankingEntry, Tactics } 
 
 type Obj = Record<string, unknown>;
 
-const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v);
-const num = (v: unknown, lo: number, hi: number): number | undefined => (typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi ? v : undefined);
-const int = (v: unknown, lo: number, hi: number): number | undefined => {
+export const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v);
+export const num = (v: unknown, lo: number, hi: number): number | undefined => (typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi ? v : undefined);
+export const int = (v: unknown, lo: number, hi: number): number | undefined => {
   const n = num(v, lo, hi);
   return n !== undefined && Number.isInteger(n) ? n : undefined;
 };
-const text = (v: unknown, max: number): string | undefined => (typeof v === 'string' && v.length <= max ? v : undefined);
-const bool = (v: unknown): boolean | undefined => (typeof v === 'boolean' ? v : undefined);
+export const text = (v: unknown, max: number): string | undefined => (typeof v === 'string' && v.length <= max ? v : undefined);
+export const bool = (v: unknown): boolean | undefined => (typeof v === 'boolean' ? v : undefined);
 
 export const ID_RE = /^[A-Za-z0-9._:-]{1,64}$/;
 export const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -23,15 +23,15 @@ const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
 export const id = (v: unknown): string | undefined => (typeof v === 'string' && ID_RE.test(v) && !FORBIDDEN_KEYS.has(v) ? v : undefined);
 export const color = (v: unknown): string | undefined => (typeof v === 'string' && COLOR_RE.test(v) ? v : undefined);
-const date = (v: unknown): string | undefined => (typeof v === 'string' && DATE_RE.test(v) ? v : undefined);
-const idList = (v: unknown, max: number): string[] | undefined => {
+export const date = (v: unknown): string | undefined => (typeof v === 'string' && DATE_RE.test(v) ? v : undefined);
+export const idList = (v: unknown, max: number): string[] | undefined => {
   if (!Array.isArray(v) || v.length > max) return undefined;
   const out = v.map(id);
   return out.every((x): x is string => x !== undefined) ? out : undefined;
 };
 
 /** Todos os campos obrigatórios presentes ou nada. */
-function all<T extends object>(o: { [K in keyof T]: T[K] | undefined }): T | undefined {
+export function all<T extends object>(o: { [K in keyof T]: T[K] | undefined }): T | undefined {
   return Object.values(o).some((x) => x === undefined) ? undefined : (o as T);
 }
 
@@ -95,7 +95,7 @@ function rankingEntry(v: unknown): RankingEntry | undefined {
 export const ranking = (v: unknown): RankingEntry[] | undefined => capped(v, 100, rankingEntry);
 
 /** Registro de objeto -> Map-like seguro: chaves validadas, valores limpos, tamanho limitado. */
-function record<T>(v: unknown, max: number, key: (k: string) => string | undefined, val: (x: unknown) => T | undefined): Record<string, T> | undefined {
+export function record<T>(v: unknown, max: number, key: (k: string) => string | undefined, val: (x: unknown) => T | undefined): Record<string, T> | undefined {
   if (!isObj(v)) return undefined;
   const keys = Object.keys(v);
   if (keys.length > max) return undefined;

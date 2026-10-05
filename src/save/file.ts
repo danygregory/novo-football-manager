@@ -1,4 +1,5 @@
 import { ENGINE_VERSION } from '../engine/version';
+import { runIds } from './run';
 import { SCHEMA, type SaveData, type SaveKey, type SaveRepository } from './repository';
 
 /** Formato do arquivo de exportação. Suba SAVE_VERSION ao mudar o esquema e escreva a migração em `migrate`. */
@@ -54,6 +55,7 @@ export function parseSave(raw: string, knownNation: (id: string) => boolean = ()
     const ids = [...c.entries.map((e) => e.nationId), ...(c.nationId ? [c.nationId] : []), ...(c.offers ?? []), ...(c.startOptions ?? [])];
     if (!ids.every(knownNation)) return { ok: false, error: 'A carreira cita seleções que não existem nesta versão do jogo.' };
   }
+  if (out.run && !runIds(out.run).every(knownNation)) return { ok: false, error: 'A Copa salva cita seleções que não existem nesta versão do jogo.' };
   const engineVersion = typeof f.engineVersion === 'number' ? f.engineVersion : 0;
   return { ok: true, data: out, engineVersion };
 }

@@ -1,4 +1,5 @@
 import * as g from './guards';
+import { run } from './run';
 
 /** Dados persistidos do jogo e o guard que valida cada um ao ler. */
 export const SCHEMA = {
@@ -9,6 +10,7 @@ export const SCHEMA = {
   stats: g.stats,
   scenarios: g.scenarios,
   names: g.names,
+  run,
   settings: g.settings,
 } as const;
 export type SaveKey = keyof typeof SCHEMA;
@@ -22,6 +24,7 @@ export const STORAGE_KEY: Record<SaveKey, string> = {
   stats: 'novo-fm-stats',
   scenarios: 'novo-fm-scenarios',
   names: 'novo-fm-names',
+  run: 'novo-fm-run',
   settings: 'novo-fm-settings',
 };
 

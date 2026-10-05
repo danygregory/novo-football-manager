@@ -11,6 +11,13 @@ export function initNames(): void {
   void engine.call('setNames', { names: { ...saved } }).catch(() => undefined);
 }
 
+/** Reaplica os nomes salvos (depois de importar um save): o que não está no save volta ao original. */
+export function syncNames(): void {
+  const saved = repo.load('names') ?? {};
+  setNameOverrides(saved);
+  void engine.call('setNames', { names: { ...saved } }).catch(() => undefined);
+}
+
 function commit(next: Record<string, string>): void {
   setNameOverrides(next);
   if (Object.keys(next).length === 0) repo.remove('names');
