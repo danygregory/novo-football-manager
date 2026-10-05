@@ -4,7 +4,7 @@ import { findPeaks, summarize, windowStats, type WindowStats } from './eras';
 import { parseCsv } from './csv';
 import type { Continent, Decade, DecadeStats, NationEra, PlayStyle, World } from '../engine/types';
 
-export const WORLD_VERSION = 3;
+export const WORLD_VERSION = 4;
 /** Mínimo de jogos da seleção na década para virar seleção-era (ajustável por `--min` no build-world). */
 export const DEFAULT_MIN_MATCHES = 15;
 /** Mínimo de jogos de uma geração (4 a 8 anos): menor que o da década porque as seleções jogavam bem menos antigamente. */
@@ -49,6 +49,11 @@ function classifyStyle(c: Candidate, decadeAvgGoals: number): PlayStyle {
  * Só dados da seleção: os elencos são gerados sob demanda (ver squads.ts).
  */
 export function buildWorld(resultsCsv: string, minMatches = DEFAULT_MIN_MATCHES): World {
+  return buildWorldAndSummaries(resultsCsv, minMatches).world;
+}
+
+/** O mundo (leve, usado pelo motor) e os resumos factuais por id (carregados só quando a tela os mostra). */
+export function buildWorldAndSummaries(resultsCsv: string, minMatches = DEFAULT_MIN_MATCHES): { world: World; summaries: Record<string, string> } {
   const { eras, decades, log } = computeElo(toRawMatches(parseCsv(resultsCsv)));
 
   const candidates: Candidate[] = [];
@@ -98,6 +103,7 @@ export function buildWorld(resultsCsv: string, minMatches = DEFAULT_MIN_MATCHES)
   });
   const avgGoals = new Map(decadeStats.map((d) => [d.decade, d.goalsPerMatchCompetitive]));
 
+  const summaries: Record<string, string> = {};
   const nations: NationEra[] = candidates
     .sort((a, b) => a.decade - b.decade || b.elo - a.elo || a.meta.code.localeCompare(b.meta.code) || a.span[0] - b.span[0])
     .map((c) => {
@@ -113,6 +119,7 @@ export function buildWorld(resultsCsv: string, minMatches = DEFAULT_MIN_MATCHES)
       const rankText = peak
         ? `Geração acima da média histórica da seleção (Elo ${Math.round(elo)}), no nível do percentil ${percentile} da década de ${c.decade}.`
         : `${rankInDecade(pool, elo)}ª entre as ${pool.length} seleções da década, com Elo médio ${Math.round(elo)}.`;
+      summaries[id] = summarize(c.entries, peak ? `${label.replace(country + ' ', '')}` : `${c.decade}–${String(c.decade + 9).slice(2)}`, rankText);
       return {
         id,
         code: c.meta.code,
@@ -131,11 +138,10 @@ export function buildWorld(resultsCsv: string, minMatches = DEFAULT_MIN_MATCHES)
         span: c.span,
         percentile,
         record: c.acc.record,
-        summary: summarize(c.entries, peak ? `${label.replace(country + ' ', '')}` : `${c.decade}–${String(c.decade + 9).slice(2)}`, rankText),
       };
     });
 
-  return { version: WORLD_VERSION, generatedFrom: 'martj42/international_results (CC0)', decades: decadeStats, nations };
+  return { world: { version: WORLD_VERSION, generatedFrom: 'martj42/international_results (CC0)', decades: decadeStats, nations }, summaries };
 }
 
 /** Posição (1 = mais forte) do Elo entre os da década. */

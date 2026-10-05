@@ -1,3 +1,4 @@
+import { clamp } from '../../engine/util';
 import { Rng, hashSeed } from '../../engine/prng';
 import type { MatchEvent, Slot, Zone } from '../../engine/types';
 import { layoutSide } from './layout';
@@ -135,7 +136,6 @@ export function zoneX(side: 0 | 1, zone: Zone): number {
 }
 export const goalX = (attacking: 0 | 1) => (attacking === 0 ? FIELD_W : 0);
 
-const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 export class Choreo {
   readonly agents = new Map<string, Agent>();

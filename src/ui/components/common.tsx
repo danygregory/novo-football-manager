@@ -1,4 +1,4 @@
-import type { Attributes, NationEra, Player } from '../../engine/types';
+import type { Attributes, MatchEvent, NationEra, Player, TeamMatchStats } from '../../engine/types';
 import { overall } from '../../engine/player';
 import { nationLabel } from '../world';
 
@@ -23,8 +23,6 @@ export function Bar({ value, max = 100, kind }: { value: number; max?: number; k
   );
 }
 
-export const POS_LABEL: Record<Player['position'], string> = { GK: 'GOL', DEF: 'DEF', MID: 'MEI', FWD: 'ATA' };
-
 export function PosPill({ p }: { p: Pick<Player, 'position' | 'slot'> }) {
   return <span className={`pill pos-${p.position}`}>{p.slot}</span>;
 }
@@ -48,4 +46,42 @@ export const STYLE_LABEL: Record<NationEra['playStyle'], string> = {
   'jogo-direto': 'jogo direto',
   ofensivo: 'ofensivo',
   equilibrado: 'equilibrado',
+};
+
+type StatRow = { key: keyof TeamMatchStats; label: string; fmt?: (v: number) => string };
+const POSSESSION: StatRow = { key: 'possession', label: 'Posse', fmt: (v) => `${Math.round(v)}%` };
+const XG: StatRow = { key: 'xg', label: 'xG', fmt: (v) => v.toFixed(2) };
+
+/** Linhas de estatística: no intervalo (sem cartões) e no pós-jogo (completas). */
+export const STAT_ROWS_LIVE: StatRow[] = [POSSESSION, { key: 'shots', label: 'Finalizações' }, { key: 'shotsOnTarget', label: 'No alvo' }, XG, { key: 'offsides', label: 'Impedimentos' }, { key: 'fouls', label: 'Faltas' }];
+export const STAT_ROWS_FULL: StatRow[] = [...STAT_ROWS_LIVE, { key: 'yellows', label: 'Amarelos' }, { key: 'reds', label: 'Vermelhos' }];
+
+/** Barras comparativas das estatísticas dos dois times (o 1º em dourado, o 2º em azul). */
+export function StatBars({ stats, rows = STAT_ROWS_LIVE }: { stats: [TeamMatchStats, TeamMatchStats]; rows?: StatRow[] }) {
+  return (
+    <>
+      {rows.map(({ key, label, fmt }) => {
+        const x = stats[0][key];
+        const y = stats[1][key];
+        const total = x + y || 1;
+        const f = fmt ?? ((v: number) => String(v));
+        return (
+          <div key={key} className="statrow">
+            <span className="l"><b>{f(x)}</b></span>
+            <div>
+              <div className="label">{label}</div>
+              <div className="split"><i style={{ width: `${(x / total) * 100}%` }} /><i style={{ width: `${(y / total) * 100}%` }} /></div>
+            </div>
+            <span><b>{f(y)}</b></span>
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+/** Ícone de cada tipo de evento (narração ao vivo e pós-jogo). */
+export const EVENT_ICON: Partial<Record<MatchEvent['type'], string>> = {
+  goal: '⚽', save: '🧤', 'hard-save': '🧤', miss: '💨', 'big-miss': '😱', post: '🥅', offside: '🚩', injury: '🚑', foul: '🦶',
+  yellow: '🟨', red: '🟥', sub: '🔁', halftime: '⏸', fulltime: '🏁', 'penalty-shootout': '🎯', tactic: '📋', kickoff: '▶',
 };

@@ -3,8 +3,8 @@ import { FORMATIONS } from '../../engine/formations';
 import type { Decision, LiveState, MatchCommand, Shout, TalkTone } from '../../engine/match';
 import { SHOUT_MINUTES } from '../../engine/match';
 import { overall } from '../../engine/player';
-import type { Tactics, TeamMatchStats } from '../../engine/types';
-import { Bar, NationName, PosPill } from '../components/common';
+import type { Tactics } from '../../engine/types';
+import { Bar, NationName, PosPill, StatBars } from '../components/common';
 import { nationsById, playerById } from '../world';
 
 export type Send = (cmd: MatchCommand) => void;
@@ -191,38 +191,6 @@ export function ChangesPanel({ state, userSide, busy, onClose, send, embedded }:
 }
 
 // ---------- intervalo ----------
-
-const STAT_ROWS: { key: keyof TeamMatchStats; label: string; fmt?: (v: number) => string }[] = [
-  { key: 'possession', label: 'Posse', fmt: (v) => `${Math.round(v)}%` },
-  { key: 'shots', label: 'Finalizações' },
-  { key: 'shotsOnTarget', label: 'No alvo' },
-  { key: 'xg', label: 'xG', fmt: (v) => v.toFixed(2) },
-  { key: 'offsides', label: 'Impedimentos' },
-  { key: 'fouls', label: 'Faltas' },
-];
-
-export function StatBars({ stats }: { stats: [TeamMatchStats, TeamMatchStats] }) {
-  return (
-    <>
-      {STAT_ROWS.map(({ key, label, fmt }) => {
-        const x = stats[0][key];
-        const y = stats[1][key];
-        const total = x + y || 1;
-        const f = fmt ?? ((v: number) => String(v));
-        return (
-          <div key={key} className="statrow">
-            <span className="l"><b>{f(x)}</b></span>
-            <div>
-              <div className="label">{label}</div>
-              <div className="split"><i style={{ width: `${(x / total) * 100}%` }} /><i style={{ width: `${(y / total) * 100}%` }} /></div>
-            </div>
-            <span><b>{f(y)}</b></span>
-          </div>
-        );
-      })}
-    </>
-  );
-}
 
 const TALKS: { tone: TalkTone; label: string; hint: string }[] = [
   { tone: 'motivate', label: 'Motivar', hint: 'Quase sempre ajuda um pouco; às vezes soa vazio.' },

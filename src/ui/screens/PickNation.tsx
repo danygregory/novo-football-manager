@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { Continent, Decade, NationEra } from '../../engine/types';
 import { squadOf } from '../../data/squads';
+import { useSummary } from '../summaries';
 import { eraSpan, world } from '../world';
 import { Bar, Kit, STYLE_LABEL } from '../components/common';
 
@@ -116,6 +117,7 @@ export function PickNation({ initial, onPick, onBack }: { initial?: string; onPi
 
 function PickDetail({ nation, rank, inDecade }: { nation: NationEra; rank: number; inDecade: number }) {
   const star = useMemo(() => squadOf(nation).find((p) => p.star), [nation]);
+  const summary = useSummary(nation);
   return (
     <div className="panel pick-detail">
       <div className="row between">
@@ -132,7 +134,7 @@ function PickDetail({ nation, rank, inDecade }: { nation: NationEra; rank: numbe
           ⭐ Craque: <b>{star.name}</b> ({star.slot}, {star.age} anos), <b>{star.trait}</b>
         </div>
       )}
-      <p className="muted" style={{ margin: '4px 0 0', fontSize: '.88rem' }}>{nation.summary}</p>
+      <p className="muted" style={{ margin: '4px 0 0', fontSize: '.88rem' }}>{summary}</p>
     </div>
   );
 }

@@ -11,7 +11,8 @@
     "test": "vitest run",
     "build-world": "tsx scripts/build-world.ts",
     "calibrate": "tsx scripts/calibrate.ts",
-    "draft-balance": "tsx scripts/draft-balance.ts"
+    "draft-balance": "tsx scripts/draft-balance.ts",
+    "golden": "tsx scripts/golden.ts"
   },
   "dependencies": {
     "pixi.js": "^8.22.0",

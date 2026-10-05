@@ -1,4 +1,4 @@
-import { RECOVERY_PER_DAY } from './fatigue';
+import { recoverCondition } from './fatigue';
 import { autoLineup, autoSquad23, tacticsForStyle } from './lineup';
 import { replayMatch, simulateMatch, type LoggedCommand, type TeamSetup } from './match';
 import { squadOf } from '../data/squads';
@@ -121,9 +121,16 @@ export function nationOf(world: World, id: string): NationEra {
 }
 
 /** O mundo com o time do draft (se houver) incluído, para as funções que procuram seleções pelo id. */
+const customWorlds = new WeakMap<NationEra, WeakMap<World, World>>();
+
 export function withCustom(world: World, custom?: NationEra): World {
-  if (!custom || world.nations.some((n) => n.id === custom.id)) return world;
-  return { ...world, nations: [...world.nations, custom] };
+  if (!custom || nationMap(world).has(custom.id)) return world;
+  // um mundo derivado por (time do draft, mundo): evita recopiar as 800+ seleções e refazer o índice a cada chamada
+  let perWorld = customWorlds.get(custom);
+  if (!perWorld) customWorlds.set(custom, (perWorld = new WeakMap()));
+  let derived = perWorld.get(world);
+  if (!derived) perWorld.set(world, (derived = { ...world, nations: [...world.nations, custom] }));
+  return derived;
 }
 
 /** Procura um jogador pelo id (o prefixo é o id da seleção-era); gera o elenco só dessa seleção. */
@@ -406,7 +413,7 @@ export function playRound(world: World, tournament: Tournament, userReport?: Mat
   // condição: valor final das partidas + recuperação para todos os convocados
   for (const id of Object.keys(t.cond)) {
     const base = newCond[id] ?? (t.cond[id] as number);
-    t.cond[id] = Math.min(100, Math.round((base + RECOVERY_PER_DAY * DAYS_BETWEEN_ROUNDS) * 10) / 10);
+    t.cond[id] = recoverCondition(base, DAYS_BETWEEN_ROUNDS);
   }
   if (record) t.userMatches.push(record);
   t.results.push(...results);

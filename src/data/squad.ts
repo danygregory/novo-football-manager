@@ -1,3 +1,4 @@
+import { clamp } from '../engine/util';
 import { Rng, hashSeed } from '../engine/prng';
 import { overall } from '../engine/player';
 import type { Attributes, Decade, Player, PlayStyle, Position, Slot } from '../engine/types';
@@ -76,7 +77,6 @@ const POSITION_BASE: Record<Position, Attributes> = {
   FWD: { defesa: -34, passe: -4, drible: 5, finalizacao: 10, fisico: -4, velocidade: 4, goleiro: -70 },
 };
 
-const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 /** Traço especial do craque por posição: o que ele faz de diferente e quanto reforça seus atributos. */
 const STAR_TRAITS: Record<Slot, { trait: string; boost: Partial<Attributes> }[]> = {

@@ -3,10 +3,10 @@ import type { LiveState, MatchCommand } from '../../engine/match';
 import { STAGE_LABEL, type Fixture, type MatchRecord } from '../../engine/tournament';
 import type { MatchEvent, MatchReport } from '../../engine/types';
 import type { MatchDelta } from '../../engine/worker';
-import { NationName } from '../components/common';
+import { EVENT_ICON, NationName } from '../components/common';
 import { engine } from '../engineClient';
 import { Choreo, type Fx, type PlayerBrief } from '../pitch/choreo';
-import { PitchView, type DotMeta } from '../pitch/PitchView';
+import type { DotMeta, PitchView } from '../pitch/PitchView';
 import { PenaltyChoice, PenaltyScene, ShootoutBoard, type Mark } from './PenaltyScreen';
 import { ChangesPanel, DecisionModal, HalftimeScreen, LivePanel, QuickSub, ShoutBar, TeamPanel } from './LiveParts';
 import { nationsById, playerById } from '../world';
@@ -23,7 +23,6 @@ import { TAU_PER_MIN as SEC_PER_MIN, tauRate, type Speed } from '../speed';
 const FEED_TYPES = new Set<MatchEvent['type']>(['kickoff', 'goal', 'save', 'hard-save', 'miss', 'big-miss', 'post', 'offside', 'injury', 'foul', 'yellow', 'red', 'sub', 'tactic', 'halftime', 'fulltime', 'penalty-shootout']);
 const DRAMATIC = new Set<MatchEvent['type']>(['goal', 'hard-save', 'big-miss', 'post']);
 const SHOT_TYPES = new Set<MatchEvent['type']>(['goal', 'save', 'hard-save', 'miss', 'big-miss', 'post']);
-const ICON: Partial<Record<MatchEvent['type'], string>> = { goal: '⚽', save: '🧤', 'hard-save': '🧤', miss: '💨', 'big-miss': '😱', post: '🥅', offside: '🚩', injury: '🚑', foul: '🦶', yellow: '🟨', red: '🟥', sub: '🔁', halftime: '⏸', fulltime: '🏁', 'penalty-shootout': '🎯', tactic: '📋', kickoff: '▶' };
 
 const lastName = (name: string) => name.split(' ').slice(-1)[0] ?? name;
 
@@ -73,6 +72,8 @@ interface Model {
   holdFetch: boolean;
   /** Decisão do motor já exibida na tela (o jogo está parado esperando a resposta). */
   decisionShown: boolean;
+  /** O campo (Pixi) ainda está carregando: o relógio espera. */
+  loading: boolean;
   /** Cobrança de pênalti em exibição (tela própria) e placar da disputa. */
   penaltyShow?: { ev: MatchEvent; short: boolean };
   soMarks: [Mark[], Mark[]];
@@ -123,6 +124,7 @@ export function LiveMatch({ start, speed0, reduced, onSpeed, onFinished, onBack 
     warp: 1,
     holdFetch: false,
     decisionShown: false,
+    loading: true,
     soMarks: [[], []],
     autoPens: false,
     skipPens: false,
@@ -191,7 +193,7 @@ export function LiveMatch({ start, speed0, reduced, onSpeed, onFinished, onBack 
     }
     if (ev.type === 'advance' || ev.type === 'possession-change') m.ticker = ev.text;
     if (FEED_TYPES.has(ev.type)) {
-      addFeed({ minute: ev.minute, text: ev.text, icon: ICON[ev.type] ?? '', mine: ev.team === userSide, kind: 'event', big: DRAMATIC.has(ev.type), goal: ev.type === 'goal' });
+      addFeed({ minute: ev.minute, text: ev.text, icon: EVENT_ICON[ev.type] ?? '', mine: ev.team === userSide, kind: 'event', big: DRAMATIC.has(ev.type), goal: ev.type === 'goal' });
     }
     if (ev.type === 'halftime') {
       m.paused = true;
@@ -293,21 +295,26 @@ export function LiveMatch({ start, speed0, reduced, onSpeed, onFinished, onBack 
     choreo.onCommit = commit;
     choreo.onFx = onFx;
     choreo.onLines = feedBuildUp;
-    const pv = new PitchView(host.current as HTMLElement);
-    pitch.current = pv;
     let cancelled = false;
-    void pv.init().then(() => {
+    let pv: PitchView | undefined;
+    // o Pixi (a maior parte do JavaScript do app) só é baixado quando a primeira partida ao vivo abre
+    void import('../pitch/PitchView').then(async ({ PitchView: Pitch }) => {
+      if (cancelled) return;
+      pv = new Pitch(host.current as HTMLElement);
+      pitch.current = pv;
+      await pv.init();
       if (cancelled) return;
       pv.setReducedMotion(reducedRef.current);
       syncLineups();
       // coloca todos nas posições-base antes do apito
       choreo.advance(2);
       drawNow();
+      model.current.loading = false;
       render();
     });
     return () => {
       cancelled = true;
-      pv.destroy();
+      pv?.destroy();
       pitch.current = undefined;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -377,7 +384,7 @@ export function LiveMatch({ start, speed0, reduced, onSpeed, onFinished, onBack 
         if (r.idx >= r.frames.length) stopReplay();
       } else {
         const finishing = m.simFinished && m.buffer.length === 0 && !choreo.busy && !m.penaltyShow;
-        if (!m.paused && !finishing && !m.penaltyShow) {
+        if (!m.paused && !finishing && !m.penaltyShow && !m.loading) {
           const dTau = dtReal * tauRate(m.speed);
           m.warp = rhythm();
           choreo.advance(dTau);

@@ -31,4 +31,3 @@ export const nationLabelById = (id: string) => {
   return n ? nationLabel(n) : id;
 };
 export const playerById = (id: string): (Player & { nationId: string }) | undefined => customPlayers.get(id) ?? findPlayer(withCustom(world, customNation), id);
-export const playerName = (id: string) => playerById(id)?.name ?? id;

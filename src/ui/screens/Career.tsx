@@ -3,11 +3,13 @@ import { squadOf } from '../../data/squads';
 import { STAGE_VALUE_LABEL, careerCut, summarizeCareer, worldPercentile, worldPot, type Career } from '../../engine/career';
 import type { NationEra } from '../../engine/types';
 import { Bar, Kit, STYLE_LABEL } from '../components/common';
+import { useSummary } from '../summaries';
 import { eraSpan, nationLabel, nationsById, world } from '../world';
 
 export function TeamCard({ n, onPick, label }: { n: NationEra; onPick: () => void; label: string }) {
   const star = useMemo(() => squadOf(n).find((p) => p.star), [n]);
   const pot = worldPot(world, n.elo);
+  const summary = useSummary(n);
   return (
     <div className="panel team-card">
       <div className="row between">
@@ -21,7 +23,7 @@ export function TeamCard({ n, onPick, label }: { n: NationEra; onPick: () => voi
         <span className="chip">top {100 - n.percentile + 1}% da época</span>
       </div>
       {star && <div style={{ fontSize: '.9rem' }}>⭐ {star.name}, <b>{star.trait}</b></div>}
-      <p className="muted" style={{ fontSize: '.82rem', margin: '6px 0 10px' }}>{n.summary}</p>
+      <p className="muted" style={{ fontSize: '.82rem', margin: '6px 0 10px' }}>{summary}</p>
       <button className="primary" onClick={onPick}>{label}</button>
     </div>
   );

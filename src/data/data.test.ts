@@ -7,11 +7,12 @@ import type { World } from '../engine/types';
 import { parseCsv } from './csv';
 import { computeElo, toRawMatches } from './elo';
 import { SQUAD_SIZE, generateSquad } from './squad';
-import { buildWorld } from './world';
+import { buildWorld, buildWorldAndSummaries } from './world';
 import { squadOf } from './squads';
 
 const csv = readFileSync(resolve(__dirname, '../../data/raw/results.csv'), 'utf8');
 const committed = JSON.parse(readFileSync(resolve(__dirname, '../../data/world.json'), 'utf8')) as World;
+const summaries = JSON.parse(readFileSync(resolve(__dirname, '../../data/summaries.json'), 'utf8')) as Record<string, string>;
 
 describe('csv', () => {
   it('lê campos entre aspas com vírgula', () => {
@@ -36,7 +37,9 @@ describe('elo', () => {
 
 describe('world.json', () => {
   it('é reproduzido exatamente pelo build-world', () => {
-    expect(JSON.parse(JSON.stringify(buildWorld(csv)))).toEqual(committed);
+    const built = buildWorldAndSummaries(csv);
+    expect(JSON.parse(JSON.stringify(built.world))).toEqual(committed);
+    expect(built.summaries).toEqual(summaries);
   });
 
   it('tem pelo menos 200 seleções-era (décadas de 1930 a 2020 e gerações), sem elencos dentro', () => {
@@ -56,11 +59,12 @@ describe('world.json', () => {
       expect(n.playStyle).toBeTruthy();
       expect(n.percentile).toBeGreaterThanOrEqual(0);
       expect(n.percentile).toBeLessThanOrEqual(100);
-      expect(n.summary.length).toBeGreaterThan(40);
+      expect(summaries[n.id]!.length).toBeGreaterThan(40);
       expect('squad' in n).toBe(false);
+      expect('summary' in n).toBe(false); // os resumos ficam em summaries.json (carregados sob demanda)
     }
     expect(new Set(committed.nations.map((n) => n.continent)).size).toBe(6);
-    expect(readFileSync(resolve(__dirname, '../../data/world.json')).length).toBeLessThan(800 * 1024);
+    expect(readFileSync(resolve(__dirname, '../../data/world.json')).length).toBeLessThan(350 * 1024); // sem os resumos
   });
 
   it('as gerações têm de 4 a 8 anos, id com o período, jogos suficientes e não se sobrepõem na mesma seleção', () => {
@@ -91,11 +95,11 @@ describe('world.json', () => {
   it('o resumo é factual: o placar da campanha bate com os resultados e não cita jogadores', () => {
     for (const n of committed.nations) {
       expect(n.record.w + n.record.d + n.record.l).toBe(n.matches);
-      expect(n.summary).toContain(`${n.matches} jogos, ${n.record.w} vitórias, ${n.record.d} empates e ${n.record.l} derrotas`);
-      expect(n.summary).toContain(`${n.record.gf} gols marcados e ${n.record.ga} sofridos`);
+      expect(summaries[n.id]).toContain(`${n.matches} jogos, ${n.record.w} vitórias, ${n.record.d} empates e ${n.record.l} derrotas`);
+      expect(summaries[n.id]).toContain(`${n.record.gf} gols marcados e ${n.record.ga} sofridos`);
     }
     const bra70 = committed.nations.find((n) => n.id === 'BRA-1970')!;
-    expect(bra70.summary).toContain('Copa de 1970: 6 jogos (6V 0E 0D)');
+    expect(summaries[bra70.id]).toContain('Copa de 1970: 6 jogos (6V 0E 0D)');
   });
 
   it('o critério de mínimo de jogos é ajustável: mais exigente gera menos seleções-era', () => {

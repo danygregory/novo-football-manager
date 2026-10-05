@@ -1,3 +1,4 @@
+import { clamp } from './util';
 import { evaluateCup, STAGE_VALUE_LABEL, type CupEvaluation } from './career';
 import { awards, nationOf, winnerOf, withCustom, type Stage, type Tournament } from './tournament';
 import type { World } from './types';
@@ -57,7 +58,6 @@ export interface CupSummary {
   facts: CupFacts;
 }
 
-const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 /** Multiplicador por diferença de força: +400 de Elo no adversário vale o dobro; adversário bem mais fraco vale menos da metade. */
 export function strengthMult(myElo: number, oppElo: number): number {

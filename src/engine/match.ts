@@ -1,3 +1,4 @@
+import { clamp } from './util';
 import { DEFAULT_PARAMS, type Params } from './params';
 import { FORMATION_SLOTS } from './formations';
 import { assignSlots, fit } from './lineup';
@@ -156,6 +157,10 @@ interface PState {
   yellows: number;
   rating: number;
   injured: boolean;
+  /** Cache: qualidade por setor (atributos não mudam) e encaixe na posição atual. */
+  q?: [number, number, number];
+  fitSlot?: Slot;
+  fitV?: number;
 }
 
 interface Sectors {
@@ -229,7 +234,6 @@ function sectorQuality(a: Attributes): [number, number, number] {
   ];
 }
 
-const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 const other = (s: Side): Side => (s === 0 ? 1 : 0);
 const logit = (p: number) => Math.log(p / (1 - p));
 const sigmoid = (x: number) => 1 / (1 + Math.exp(-x));
@@ -610,13 +614,15 @@ export class MatchSimulator {
 
   private minuteTick(minute: number): void {
     const f = this.params.fatigue;
-    for (const s of this.sides) {
+    for (const side of [0, 1] as Side[]) {
+      const s = this.sides[side];
+      // a tática efetiva é a mesma para o time inteiro: calcula uma vez por minuto, não uma vez por jogador
+      const e = this.fx(side);
+      const base = f.base + f.press * e.pressing + f.tempo * e.tempo + f.line * e.lineHeight;
       for (const x of s.players) {
         if (!x.onPitch) continue;
         const gk = x.slot === 'GK' ? 0.25 : 1;
-        const e = this.fx(this.sides[0] === s ? 0 : 1);
-        const loss = (f.base + f.press * e.pressing + f.tempo * e.tempo + f.line * e.lineHeight) * (1.3 - x.p.attrs.fisico / 150) * gk;
-        x.cond = Math.max(0, x.cond - loss);
+        x.cond = Math.max(0, x.cond - base * (1.3 - x.p.attrs.fisico / 150) * gk);
       }
       s.dirty = true;
     }
@@ -867,12 +873,17 @@ export class MatchSimulator {
     for (const x of s.players) {
       if (!x.onPitch) continue;
       const f = ((1 - this.params.fatigueImpact) + this.params.fatigueImpact * (x.cond / 100)) * (x.injured ? 0.55 : 1);
-      const fitV = fit(x.p, x.slot);
+      // encaixe e qualidade por setor só mudam com a posição/atributos: guardados no jogador
+      if (x.fitSlot !== x.slot) {
+        x.fitSlot = x.slot;
+        x.fitV = fit(x.p, x.slot);
+      }
+      const fitV = x.fitV as number;
       if (x.slot === 'GK') {
         gk = x.p.attrs.goleiro * f * fitV;
         continue;
       }
-      const q = sectorQuality(x.p.attrs);
+      const q = (x.q ??= sectorQuality(x.p.attrs));
       const w = SLOT_WEIGHTS[x.slot];
       for (let i = 0; i < 3; i++) {
         sums[i] = (sums[i] as number) + (w[i] as number) * (q[i] as number) * f * fitV;

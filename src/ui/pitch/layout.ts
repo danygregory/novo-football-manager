@@ -1,4 +1,4 @@
-import type { Slot, Zone } from '../../engine/types';
+import type { Slot } from '../../engine/types';
 
 /** Posição (0..1) de cada slot no campo, com o time atacando da esquerda para a direita. */
 const SLOT_X: Record<Slot, number> = { GK: 0.05, CB: 0.2, LB: 0.22, RB: 0.22, WB: 0.32, DM: 0.36, CM: 0.46, AM: 0.58, LW: 0.68, RW: 0.68, ST: 0.76 };
@@ -32,11 +32,4 @@ export function layoutSide(players: { id: string; slot: Slot }[], side: 0 | 1, b
     });
   }
   return out;
-}
-
-/** Posição da bola (0..1) pelo time com a posse e a zona (do ponto de vista de quem ataca). */
-export function ballPosition(team: 0 | 1, zone: Zone, jitter: number): { x: number; y: number } {
-  const x = zone === 'DEF' ? 0.16 : zone === 'MID' ? 0.5 : zone === 'ATT' ? 0.76 : 0.92;
-  const y = 0.5 + (jitter - 0.5) * 0.7;
-  return team === 0 ? { x, y } : { x: 1 - x, y: 1 - y };
 }

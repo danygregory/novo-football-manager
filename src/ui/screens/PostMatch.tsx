@@ -1,26 +1,13 @@
-import type { MatchEvent, MatchReport, TeamMatchStats } from '../../engine/types';
+import type { MatchReport } from '../../engine/types';
 import { STAGE_LABEL, type Fixture } from '../../engine/tournament';
-import { NationName } from '../components/common';
+import { EVENT_ICON, NationName, STAT_ROWS_FULL, StatBars } from '../components/common';
 import { nationsById, playerById } from '../world';
 
-const STAT_ROWS: { key: keyof TeamMatchStats; label: string; fmt?: (v: number) => string }[] = [
-  { key: 'possession', label: 'Posse', fmt: (v) => `${Math.round(v)}%` },
-  { key: 'shots', label: 'Finalizações' },
-  { key: 'shotsOnTarget', label: 'No alvo' },
-  { key: 'xg', label: 'xG', fmt: (v) => v.toFixed(2) },
-  { key: 'offsides', label: 'Impedimentos' },
-  { key: 'fouls', label: 'Faltas' },
-  { key: 'yellows', label: 'Amarelos' },
-  { key: 'reds', label: 'Vermelhos' },
-];
-
 const KEY_EVENTS = new Set(['goal', 'hard-save', 'big-miss', 'post', 'injury', 'yellow', 'red', 'sub', 'halftime', 'fulltime', 'penalty-shootout', 'tactic']);
-const ICON: Partial<Record<MatchEvent['type'], string>> = { goal: '⚽', 'hard-save': '🧤', 'big-miss': '😱', post: '🥅', injury: '🚑', yellow: '🟨', red: '🟥', sub: '🔁', halftime: '⏸', fulltime: '🏁', 'penalty-shootout': '🎯', tactic: '📋' };
 
 export function PostMatch({ report, fixture, userNationId, onContinue }: { report: MatchReport; fixture: Fixture; userNationId: string; onContinue: () => void }) {
   const home = nationsById.get(report.teams[0])!;
   const away = nationsById.get(report.teams[1])!;
-  const [a, b] = report.stats;
   const ratingEntries = Object.entries(report.ratings).sort((x, y) => y[1] - x[1]);
   const mvp = ratingEntries[0]?.[0];
   const won = report.score[0] === report.score[1] ? (report.shootout ? (report.shootout[0] > report.shootout[1] ? 0 : 1) : undefined) : report.score[0] > report.score[1] ? 0 : 1;
@@ -49,29 +36,14 @@ export function PostMatch({ report, fixture, userNationId, onContinue }: { repor
       <div className="cols" style={{ marginTop: 16 }}>
         <div className="panel">
           <h3>Estatísticas</h3>
-          {STAT_ROWS.map(({ key, label, fmt }) => {
-            const x = a[key];
-            const y = b[key];
-            const total = x + y || 1;
-            const f = fmt ?? ((v: number) => String(v));
-            return (
-              <div key={key} className="statrow">
-                <span className="l"><b>{f(x)}</b></span>
-                <div>
-                  <div className="label">{label}</div>
-                  <div className="split"><i style={{ width: `${(x / total) * 100}%` }} /><i style={{ width: `${(y / total) * 100}%` }} /></div>
-                </div>
-                <span><b>{f(y)}</b></span>
-              </div>
-            );
-          })}
+          <StatBars stats={report.stats} rows={STAT_ROWS_FULL} />
         </div>
         <div className="panel">
           <h3>Lances</h3>
           <ul className="timeline" style={{ margin: 0, paddingLeft: 18, listStyle: 'none' }}>
             {report.events.filter((e) => KEY_EVENTS.has(e.type)).map((e, i) => (
               <li key={i} className={e.type === 'goal' ? 'mvp' : ''}>
-                <span className="muted">{e.minute}'</span> {ICON[e.type] ?? ''} {e.text}
+                <span className="muted">{e.minute}'</span> {EVENT_ICON[e.type] ?? ''} {e.text}
               </li>
             ))}
           </ul>

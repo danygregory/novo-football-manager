@@ -79,8 +79,8 @@ export interface NationEra {
   percentile: number;
   /** Campanha real no período: vitórias, empates, derrotas e gols. */
   record: { w: number; d: number; l: number; gf: number; ga: number };
-  /** Resumo factual da campanha real, escrito só a partir de resultados. */
-  summary: string;
+  /** Resumo factual (só dos times montados no draft). Das seleções históricas ele fica em data/summaries.json, carregado sob demanda. */
+  summary?: string;
   /** Time montado no draft: elenco guardado aqui (as seleções históricas geram o elenco sob demanda). */
   custom?: boolean;
   customSquad?: Player[];
