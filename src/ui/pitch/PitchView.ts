@@ -1,3 +1,5 @@
+// Sem isso o Pixi compila os sincronizadores de shader com `new Function`, o que exigiria 'unsafe-eval' na CSP.
+import 'pixi.js/unsafe-eval';
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
 import { FIELD_H, FIELD_W } from './choreo';
 

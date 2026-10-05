@@ -44,3 +44,11 @@ Estreia em Copas · Campeão do mundo · Cinderela (campeão do pote 4) · Azar�
 ## Dados salvos no navegador
 
 `novo-fm-career`, `novo-fm-achievements`, `novo-fm-ranking`, `novo-fm-daily`, `novo-fm-stats` e `novo-fm-settings` (localStorage). Nenhum dado sai do navegador. A Fase 7 (save/load) deve migrar isso para a mesma estrutura de saves.
+
+## Endurecimento de segurança (pós-Fase 6.7)
+
+- **CSP no build** (`vite.config.ts`): `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'`, mais `referrer: no-referrer`. Só no build: o servidor de desenvolvimento precisa de WebSocket e scripts inline. Sem `'unsafe-eval'`: o Pixi importa `pixi.js/unsafe-eval`. Testado com `vite preview` em partida ao vivo: zero violações.
+- **Rota `#penalty-demo`** só existe com `import.meta.env.DEV`; sai do build de produção.
+- **Worker** só atende tipos de pedido que existem (`Object.hasOwn`).
+- **Autor dos commits** do repositório passou a usar o e-mail `noreply` do GitHub (o histórico anterior continua com o e-mail antigo).
+- **Pendente para a Fase 7:** validar esquema, tamanho e cores (`#rrggbb`) de qualquer save importado.

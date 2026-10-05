@@ -73,7 +73,8 @@ function loadSettings(): Settings {
 }
 
 export function App() {
-  if (typeof location !== 'undefined' && location.hash === '#penalty-demo') return <PenaltyDemo />;
+  // página de depuração da cena de pênalti: só existe no servidor de desenvolvimento (fora do build de produção)
+  if (import.meta.env.DEV && typeof location !== 'undefined' && location.hash === '#penalty-demo') return <PenaltyDemo />;
   return <MainApp />;
 }
 

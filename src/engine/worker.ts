@@ -122,6 +122,8 @@ const handlers: { [K in RequestType]: (p: Requests[K]) => Responses[K] } = {
 self.onmessage = (ev: MessageEvent<{ id: number; type: RequestType } & Record<string, unknown>>) => {
   const { id, type, ...payload } = ev.data;
   try {
+    // só os tipos conhecidos (nada de "constructor" ou "__proto__" vindos da mensagem)
+    if (!Object.hasOwn(handlers, type)) throw new Error(`Pedido desconhecido: ${String(type)}`);
     const handler = handlers[type] as (p: unknown) => unknown;
     self.postMessage({ id, ok: true, result: handler(payload) });
   } catch (e) {
