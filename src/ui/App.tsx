@@ -5,6 +5,10 @@ import { squadOf } from '../data/squads';
 import type { Lineup, MatchReport } from '../engine/types';
 import { applyCup, careerCut, newCareer, reputationDelta, takeTeam, type Career, type CupEvaluation } from '../engine/career';
 import { Kit } from './components/common';
+import { ShareBar } from './components/ShareBar';
+import { ChallengeIntro } from './screens/ChallengeIntro';
+import { baseUrl, encodeChallenge, parseChallenge, type Challenge } from '../share/link';
+import { cupShare } from '../share/result';
 import { repo, todayIso } from './store';
 import type { Settings } from '../save';
 import { DEFAULT_SPEED, type Speed } from './speed';
@@ -12,7 +16,7 @@ import { engine } from './engineClient';
 import { Cup } from './screens/Cup';
 import { CupEnd } from './screens/CupEnd';
 import { Achievements } from './screens/Achievements';
-import { DailyIntro, DailyShare } from './screens/Daily';
+import { DailyIntro } from './screens/Daily';
 import { bestOfDay, dailyCut, dailySeed, dailyTeam, shareText, type DailyRecord } from '../engine/daily';
 import { ScoreCard } from './screens/ScoreCard';
 import { addToRanking, newAchievements, rankingEntry, summarizeCup, type Achievement, type CupSummary } from '../engine/scoring';
@@ -30,12 +34,14 @@ import { Squad } from './screens/Squad';
 import { Tactics } from './screens/Tactics';
 import { eraSpan, nationLabel, nationsById, registerCustom, world } from './world';
 
-type Screen = 'home' | 'achievements' | 'dailyIntro' | 'careerStart' | 'careerHome' | 'pick' | 'squad' | 'draftSetup' | 'draft' | 'tactics' | 'cupSetup' | 'cup' | 'match' | 'live' | 'post' | 'end';
+type Screen = 'home' | 'achievements' | 'challengeIntro' | 'dailyIntro' | 'careerStart' | 'careerHome' | 'pick' | 'squad' | 'draftSetup' | 'draft' | 'tactics' | 'cupSetup' | 'cup' | 'match' | 'live' | 'post' | 'end';
 
 interface Game {
   screen: Screen;
   /** Seleção pronta ou time montado no draft. */
   mode?: 'ready' | 'draft' | 'career' | 'daily';
+  /** Link de desafio aberto: a Copa do amigo (seleção, recorte e seed). */
+  challenge?: Extract<Challenge, { kind: 'cup' }>;
   /** Data (aaaa-mm-dd) do desafio do dia em andamento. */
   dailyDate?: string;
   career?: Career;
@@ -215,6 +221,54 @@ function MainApp() {
     setG((prev) => ({ ...FRESH, mode: 'career', career, screen, cut: prev.cut }));
   };
 
+  // link de desafio no endereço (#c=...): abre a tela do desafio e limpa o hash para não reabrir ao recarregar
+  useEffect(() => {
+    const open = () => {
+      if (!location.hash.startsWith('#c=')) return;
+      const c = parseChallenge(location.hash, { nation: (id) => nationsById.has(id), scenario: () => false });
+      history.replaceState(null, '', location.pathname + location.search);
+      if (!c) return;
+      registerCustom(undefined);
+      if (c.kind === 'cup') setG({ ...FRESH, mode: 'ready', challenge: c, nationId: c.nationId, cut: c.cut, screen: 'challengeIntro' });
+      else if (c.kind === 'daily' && c.date <= todayIso()) setG({ ...FRESH, mode: 'daily', dailyDate: c.date, screen: 'dailyIntro' });
+    };
+    open();
+    window.addEventListener('hashchange', open);
+    return () => window.removeEventListener('hashchange', open);
+  }, []);
+
+  /** Barra de compartilhar do fim da Copa: texto, imagem e (menos no draft) o link para o amigo jogar a mesma Copa. */
+  const endShare = (summary: CupSummary, daily?: DailyRecord) => {
+    const tt = g.tournament as Tournament;
+    const nation = nationsById.get(tt.userNationId);
+    if (!nation) return null;
+    const url = baseUrl();
+    let challenge: Challenge | undefined;
+    let mode = 'Copa';
+    if (g.mode === 'daily' && g.dailyDate) {
+      challenge = { kind: 'daily', date: g.dailyDate };
+      mode = `Desafio do dia · ${g.dailyDate}`;
+    } else if (!nation.custom) {
+      challenge = { kind: 'cup', nationId: nation.id, cut: tt.cut, seed: tt.seed, points: summary.total, stage: summary.stageText };
+      mode = g.mode === 'career' ? 'Carreira' : 'Copa';
+    }
+    const link = challenge ? url + encodeChallenge(challenge) : undefined;
+    const r = cupShare({ summary, team: nation.country, era: eraSpan(nation), colors: nation.colors, mode, link, url });
+    const text = daily && link ? `${daily.text}\n${link}` : r.text;
+    const vs = g.challenge?.points;
+    return (
+      <>
+        {vs !== undefined && (
+          <div className="panel" style={{ textAlign: 'left', margin: '14px 0' }}>
+            <b>{summary.total > vs ? '🏆 Você superou o desafio!' : summary.total === vs ? 'Empate no desafio.' : 'O desafio ainda é do seu amigo.'}</b>{' '}
+            <span className="muted">Você: {summary.total} pts · Amigo: {vs} pts</span>
+          </div>
+        )}
+        <ShareBar text={text} card={r.card} filename={`novo-fm-${nation.id}.png`} />
+      </>
+    );
+  };
+
   const t = g.tournament;
   const user = g.nationId ? nationsById.get(g.nationId) : undefined;
 
@@ -265,6 +319,17 @@ function MainApp() {
 
       {g.screen === 'achievements' && <Achievements onBack={() => go({ screen: 'home' })} />}
 
+      {g.screen === 'challengeIntro' && g.challenge && (
+        <ChallengeIntro
+          nationId={g.challenge.nationId}
+          cut={g.challenge.cut}
+          points={g.challenge.points}
+          stage={g.challenge.stage}
+          onBack={resetAll}
+          onPlay={() => go({ called: [], lineup: undefined, scored: undefined, tournament: undefined, screen: 'squad' })}
+        />
+      )}
+
       {g.screen === 'dailyIntro' && g.dailyDate && (
         <DailyIntro
           date={g.dailyDate}
@@ -314,7 +379,7 @@ function MainApp() {
       )}
 
       {g.screen === 'squad' && g.nationId && (
-        <Squad nationId={g.nationId} initial={g.called} readOnly={!!t} cond={t?.cond} onBack={() => go({ screen: t ? 'cup' : g.mode === 'career' ? 'careerHome' : g.mode === 'daily' ? 'dailyIntro' : 'pick' })} onConfirm={(ids) => go({ called: ids, lineup: undefined, screen: 'tactics' })} />
+        <Squad nationId={g.nationId} initial={g.called} readOnly={!!t} cond={t?.cond} onBack={() => go({ screen: t ? 'cup' : g.mode === 'career' ? 'careerHome' : g.mode === 'daily' ? 'dailyIntro' : g.challenge ? 'challengeIntro' : 'pick' })} onConfirm={(ids) => go({ called: ids, lineup: undefined, screen: 'tactics' })} />
       )}
 
       {g.screen === 'tactics' && g.nationId && (
@@ -324,7 +389,7 @@ function MainApp() {
           cond={t?.cond}
           initial={g.lineup ?? (t ? t.userLineup : undefined)}
           initialFormation={g.draftConfig?.formation}
-          confirmLabel={t ? 'Salvar e voltar à Copa' : g.mode === 'career' || g.mode === 'daily' ? 'Iniciar a Copa' : 'Escolher o recorte da Copa'}
+          confirmLabel={t ? 'Salvar e voltar à Copa' : g.mode === 'career' || g.mode === 'daily' || g.challenge ? 'Iniciar a Copa' : 'Escolher o recorte da Copa'}
           onBack={() => go({ screen: t ? 'cup' : g.mode === 'career' ? 'careerHome' : g.mode === 'draft' ? 'draft' : 'squad' })}
           onConfirm={(lineup) => {
             if (t) setG((prev) => ({ ...prev, lineup, tournament: { ...t, userLineup: lineup }, screen: 'cup' }));
@@ -334,6 +399,10 @@ function MainApp() {
               const nation = nationsById.get(career.nationId as string);
               setG((prev) => ({ ...prev, career }));
               void startCup(lineup, nation ? careerCut(world, nation) : 'all');
+            } else if (g.challenge) {
+              // desafio de um amigo: mesma seed e mesmo recorte da Copa dele
+              go({ lineup });
+              void startCup(lineup, g.challenge.cut, g.challenge.seed);
             } else if (g.mode === 'daily' && g.dailyDate) {
               // desafio do dia: a seed vem da data, então todos jogam a mesma Copa
               go({ lineup });
@@ -377,7 +446,7 @@ function MainApp() {
           extra={
             <>
               {g.scored && <ScoreCard summary={g.scored.summary} achievements={g.scored.achievements} />}
-              {g.scored?.daily && <DailyShare record={g.scored.daily} />}
+              {g.scored && endShare(g.scored.summary, g.scored.daily)}
               {g.mode === 'career' && g.career && g.careerResult ? (
             <CareerAfterCup
               career={g.career}

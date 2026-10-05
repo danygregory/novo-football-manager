@@ -57,16 +57,3 @@ export function CopyButton({ text }: { text: string }) {
     </button>
   );
 }
-
-export function DailyShare({ record }: { record: DailyRecord }) {
-  return (
-    <div className="panel" style={{ textAlign: 'left', margin: '14px 0' }}>
-      <h3>Resultado para compartilhar</h3>
-      <pre className="share">{record.text}</pre>
-      <div className="row">
-        <CopyButton text={record.text} />
-        <span className="muted" style={{ fontSize: '.85rem' }}>Só tem a data, a seleção do dia e a campanha. Nada sai do seu navegador.</span>
-      </div>
-    </div>
-  );
-}
