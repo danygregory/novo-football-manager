@@ -8,7 +8,10 @@ import { Kit } from './components/common';
 import { ShareBar } from './components/ShareBar';
 import { ChallengeIntro } from './screens/ChallengeIntro';
 import { baseUrl, encodeChallenge, parseChallenge, type Challenge } from '../share/link';
-import { cupShare } from '../share/result';
+import { cupShare, scenarioShare } from '../share/result';
+import { SCENARIOS, scenarioById, scenarioResult, type Scenario, type ScenarioResult } from '../engine/scenarios';
+import { autoLineup, autoSquad23, tacticsForStyle } from '../engine/lineup';
+import { ScenarioList, ScenarioOutcome } from './screens/Scenarios';
 import { repo, todayIso } from './store';
 import type { Settings } from '../save';
 import { DEFAULT_SPEED, type Speed } from './speed';
@@ -34,12 +37,16 @@ import { Squad } from './screens/Squad';
 import { Tactics } from './screens/Tactics';
 import { eraSpan, nationLabel, nationsById, registerCustom, world } from './world';
 
-type Screen = 'home' | 'achievements' | 'challengeIntro' | 'dailyIntro' | 'careerStart' | 'careerHome' | 'pick' | 'squad' | 'draftSetup' | 'draft' | 'tactics' | 'cupSetup' | 'cup' | 'match' | 'live' | 'post' | 'end';
+type Screen = 'home' | 'achievements' | 'challengeIntro' | 'scenarios' | 'scenarioEnd' | 'dailyIntro' | 'careerStart' | 'careerHome' | 'pick' | 'squad' | 'draftSetup' | 'draft' | 'tactics' | 'cupSetup' | 'cup' | 'match' | 'live' | 'post' | 'end';
 
 interface Game {
   screen: Screen;
   /** Seleção pronta ou time montado no draft. */
-  mode?: 'ready' | 'draft' | 'career' | 'daily';
+  mode?: 'ready' | 'draft' | 'career' | 'daily' | 'scenario';
+  scenario?: Scenario;
+  /** Link de cenário de amigo: mostra só esse cenário, com os pontos dele. */
+  scenarioFriend?: { id: string; points?: number };
+  scenarioOutcome?: { res: ScenarioResult; best: number; improved: boolean };
   /** Link de desafio aberto: a Copa do amigo (seleção, recorte e seed). */
   challenge?: Extract<Challenge, { kind: 'cup' }>;
   /** Data (aaaa-mm-dd) do desafio do dia em andamento. */
@@ -111,6 +118,21 @@ function MainApp() {
       setG((prev) => ({ ...prev, lineup, cut, tournament, screen: 'cup', last: undefined, scored: undefined }));
     });
 
+  /** Cenário: elenco e escalação já definidos (ou automáticos) -> cria a partida e vai à apresentação do jogo. */
+  const startScenario = (sc: Scenario, called: string[], lineup: Lineup) =>
+    guarded(async () => {
+      registerCustom(undefined);
+      const tournament = await engine.call('createScenario', { scenarioId: sc.id, squad: called, lineup });
+      setG((prev) => ({ ...prev, mode: 'scenario', scenario: sc, nationId: sc.user, called, lineup, tournament, scenarioOutcome: undefined, scored: undefined, last: undefined, screen: 'match' }));
+    });
+
+  const playScenarioNow = (sc: Scenario) => {
+    const nation = nationsById.get(sc.user);
+    if (!nation) return;
+    const squad = autoSquad23(squadOf(nation));
+    void startScenario(sc, squad.map((p) => p.id), autoLineup(nation.id, squad, tacticsForStyle(nation.playStyle)));
+  };
+
   const resetAll = () => {
     registerCustom(undefined);
     setG(FRESH);
@@ -172,8 +194,18 @@ function MainApp() {
 
   // ao terminar a Copa: pontuação, conquistas, ranking local e (na carreira) reputação, histórico e convites, uma vez por Copa
   useEffect(() => {
-    if (g.screen !== 'end' || !g.tournament || g.scored) return;
+    if ((g.screen !== 'end' && g.screen !== 'scenarioEnd') || !g.tournament || g.scored || g.scenarioOutcome) return;
     const t0 = g.tournament;
+    if (t0.scenario) {
+      const res = scenarioResult(world, t0);
+      if (!res) return;
+      const all = repo.load('scenarios') ?? {};
+      const prevBest = all[t0.scenario.id]?.points;
+      const improved = prevBest === undefined || res.points > prevBest;
+      if (improved) repo.save('scenarios', { ...all, [t0.scenario.id]: { points: res.points, text: res.text, date: todayIso() } });
+      setG((prev) => ({ ...prev, scenarioOutcome: { res, best: improved ? res.points : (prevBest as number), improved } }));
+      return;
+    }
     const summary = summarizeCup(world, t0);
     let career = g.career;
     let careerResult = g.careerResult;
@@ -192,7 +224,7 @@ function MainApp() {
     const date = todayIso();
     if (achievements.length) repo.save('achievements', { ...repo.load('achievements'), ...Object.fromEntries(achievements.map((a) => [a.id, date])) });
     const team = nationsById.get(t0.userNationId)?.country ?? t0.userNationId;
-    repo.save('ranking', addToRanking(repo.load('ranking') ?? [], rankingEntry(summary, g.mode ?? 'ready', team, date)));
+    repo.save('ranking', addToRanking(repo.load('ranking') ?? [], rankingEntry(summary, (g.mode === 'scenario' ? 'ready' : g.mode) ?? 'ready', team, date)));
     repo.save('stats', { cups: stats.cups + 1 });
     let dailyRecord: DailyRecord | undefined;
     if (g.mode === 'daily' && g.dailyDate) {
@@ -225,11 +257,12 @@ function MainApp() {
   useEffect(() => {
     const open = () => {
       if (!location.hash.startsWith('#c=')) return;
-      const c = parseChallenge(location.hash, { nation: (id) => nationsById.has(id), scenario: () => false });
+      const c = parseChallenge(location.hash, { nation: (id) => nationsById.has(id), scenario: (id) => !!scenarioById(id) });
       history.replaceState(null, '', location.pathname + location.search);
       if (!c) return;
       registerCustom(undefined);
       if (c.kind === 'cup') setG({ ...FRESH, mode: 'ready', challenge: c, nationId: c.nationId, cut: c.cut, screen: 'challengeIntro' });
+      else if (c.kind === 'scenario') setG({ ...FRESH, mode: 'scenario', scenarioFriend: { id: c.id, points: c.points }, screen: 'scenarios' });
       else if (c.kind === 'daily' && c.date <= todayIso()) setG({ ...FRESH, mode: 'daily', dailyDate: c.date, screen: 'dailyIntro' });
     };
     open();
@@ -265,6 +298,29 @@ function MainApp() {
           </div>
         )}
         <ShareBar text={text} card={r.card} filename={`novo-fm-${nation.id}.png`} />
+      </>
+    );
+  };
+
+  /** Fim de um cenário: resultado, pontos, compartilhar e tentar de novo. */
+  const scenarioEnd = (sc: Scenario, o: { res: ScenarioResult; best: number; improved: boolean }) => {
+    const me = nationsById.get(sc.user);
+    const opp = nationsById.get(sc.opponent);
+    if (!me || !opp) return null;
+    const url = baseUrl();
+    const link = url + encodeChallenge({ kind: 'scenario', id: sc.id, points: o.res.points });
+    const r = scenarioShare({ title: sc.title, team: me.country, era: eraSpan(me), opponent: `${opp.country} ${eraSpan(opp)}`, colors: me.colors, resultText: o.res.text, won: o.res.result === 'W', score: `${o.res.score[0]}–${o.res.score[1]}`, points: o.res.points, link, url });
+    const next = SCENARIOS[(SCENARIOS.findIndex((x) => x.id === sc.id) + 1) % SCENARIOS.length] as Scenario;
+    return (
+      <>
+        <ScenarioOutcome sc={sc} res={o.res} best={o.best} improved={o.improved} />
+        <ShareBar text={r.text} card={r.card} filename={`novo-fm-${sc.id}.png`} />
+        <div className="row" style={{ justifyContent: 'center' }}>
+          <button className="primary" onClick={() => playScenarioNow(sc)}>Tentar de novo (elenco automático)</button>
+          <button onClick={() => go({ mode: 'scenario', scenario: sc, nationId: sc.user, called: [], lineup: undefined, tournament: undefined, scenarioOutcome: undefined, screen: 'squad' })}>Escalar de outro jeito</button>
+          <button onClick={() => playScenarioNow(next)}>Próximo: {next.title}</button>
+          <button onClick={() => setG({ ...FRESH, mode: 'scenario', screen: 'scenarios' })}>Todos os cenários</button>
+        </div>
       </>
     );
   };
@@ -308,6 +364,8 @@ function MainApp() {
               go({ mode: 'daily', dailyDate: todayIso(), screen: 'dailyIntro' });
             },
             dailyDone: !!repo.load('daily')?.[todayIso()],
+            onScenarios: () => go({ mode: 'scenario', scenarioFriend: undefined, screen: 'scenarios' }),
+            scenariosDone: Object.keys(repo.load('scenarios') ?? {}).length,
             onDraft: () => go({ mode: 'draft', screen: 'draftSetup' }),
             onReady: () => {
               registerCustom(undefined);
@@ -318,6 +376,20 @@ function MainApp() {
       )}
 
       {g.screen === 'achievements' && <Achievements onBack={() => go({ screen: 'home' })} />}
+
+      {g.screen === 'scenarios' && (
+        <ScenarioList
+          best={repo.load('scenarios') ?? {}}
+          only={g.scenarioFriend ? scenarioById(g.scenarioFriend.id) : undefined}
+          friend={g.scenarioFriend?.points}
+          onPlay={playScenarioNow}
+          onPick={(sc) => go({ mode: 'scenario', scenario: sc, nationId: sc.user, called: [], lineup: undefined, tournament: undefined, screen: 'squad' })}
+          onAll={() => go({ scenarioFriend: undefined })}
+          onBack={resetAll}
+        />
+      )}
+
+      {g.screen === 'scenarioEnd' && g.scenario && g.scenarioOutcome && scenarioEnd(g.scenario, g.scenarioOutcome)}
 
       {g.screen === 'challengeIntro' && g.challenge && (
         <ChallengeIntro
@@ -379,7 +451,7 @@ function MainApp() {
       )}
 
       {g.screen === 'squad' && g.nationId && (
-        <Squad nationId={g.nationId} initial={g.called} readOnly={!!t} cond={t?.cond} onBack={() => go({ screen: t ? 'cup' : g.mode === 'career' ? 'careerHome' : g.mode === 'daily' ? 'dailyIntro' : g.challenge ? 'challengeIntro' : 'pick' })} onConfirm={(ids) => go({ called: ids, lineup: undefined, screen: 'tactics' })} />
+        <Squad nationId={g.nationId} initial={g.called} readOnly={!!t} cond={t?.cond} onBack={() => go({ screen: t ? 'cup' : g.mode === 'career' ? 'careerHome' : g.mode === 'daily' ? 'dailyIntro' : g.mode === 'scenario' ? 'scenarios' : g.challenge ? 'challengeIntro' : 'pick' })} onConfirm={(ids) => go({ called: ids, lineup: undefined, screen: 'tactics' })} />
       )}
 
       {g.screen === 'tactics' && g.nationId && (
@@ -389,7 +461,7 @@ function MainApp() {
           cond={t?.cond}
           initial={g.lineup ?? (t ? t.userLineup : undefined)}
           initialFormation={g.draftConfig?.formation}
-          confirmLabel={t ? 'Salvar e voltar à Copa' : g.mode === 'career' || g.mode === 'daily' || g.challenge ? 'Iniciar a Copa' : 'Escolher o recorte da Copa'}
+          confirmLabel={t ? 'Salvar e voltar à Copa' : g.mode === 'scenario' ? 'Jogar o cenário' : g.mode === 'career' || g.mode === 'daily' || g.challenge ? 'Iniciar a Copa' : 'Escolher o recorte da Copa'}
           onBack={() => go({ screen: t ? 'cup' : g.mode === 'career' ? 'careerHome' : g.mode === 'draft' ? 'draft' : 'squad' })}
           onConfirm={(lineup) => {
             if (t) setG((prev) => ({ ...prev, lineup, tournament: { ...t, userLineup: lineup }, screen: 'cup' }));
@@ -399,6 +471,8 @@ function MainApp() {
               const nation = nationsById.get(career.nationId as string);
               setG((prev) => ({ ...prev, career }));
               void startCup(lineup, nation ? careerCut(world, nation) : 'all');
+            } else if (g.mode === 'scenario' && g.scenario) {
+              void startScenario(g.scenario, g.called, lineup);
             } else if (g.challenge) {
               // desafio de um amigo: mesma seed e mesmo recorte da Copa dele
               go({ lineup });
@@ -427,7 +501,7 @@ function MainApp() {
       )}
 
       {g.screen === 'match' && t && userFixture(t, world) && (
-        <MatchIntro t={t} fixture={userFixture(t, world) as Fixture} busy={busy} onInstant={playInstant} onWatch={startLive} lastSpeed={lastSpeed} onBack={() => go({ screen: 'cup' })} />
+        <MatchIntro t={t} fixture={userFixture(t, world) as Fixture} busy={busy} onInstant={playInstant} onWatch={startLive} lastSpeed={lastSpeed} onBack={() => go({ screen: t.scenario ? 'scenarios' : 'cup' })} />
       )}
 
       {g.screen === 'live' && g.live && (
@@ -435,7 +509,7 @@ function MainApp() {
       )}
 
       {g.screen === 'post' && g.last && t && (
-        <PostMatch report={g.last.report} fixture={g.last.fixture} userNationId={t.userNationId} onContinue={() => go({ screen: t.stage === 'DONE' ? 'end' : 'cup' })} />
+        <PostMatch report={g.last.report} fixture={g.last.fixture} userNationId={t.userNationId} onContinue={() => go({ screen: t.stage === 'DONE' ? (t.scenario ? 'scenarioEnd' : 'end') : 'cup' })} />
       )}
 
       {g.screen === 'end' && t && (

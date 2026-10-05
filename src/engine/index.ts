@@ -13,3 +13,4 @@ export * from './tournament';
 export * from './career';
 export * from './scoring';
 export * from './daily';
+export * from './scenarios';

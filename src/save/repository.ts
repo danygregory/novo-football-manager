@@ -7,6 +7,7 @@ export const SCHEMA = {
   ranking: g.ranking,
   daily: g.daily,
   stats: g.stats,
+  scenarios: g.scenarios,
   settings: g.settings,
 } as const;
 export type SaveKey = keyof typeof SCHEMA;
@@ -18,6 +19,7 @@ export const STORAGE_KEY: Record<SaveKey, string> = {
   ranking: 'novo-fm-ranking',
   daily: 'novo-fm-daily',
   stats: 'novo-fm-stats',
+  scenarios: 'novo-fm-scenarios',
   settings: 'novo-fm-settings',
 };
 

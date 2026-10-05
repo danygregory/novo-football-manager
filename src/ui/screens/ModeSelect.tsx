@@ -5,10 +5,12 @@ export interface ModeHandlers {
   dailyDone: boolean;
   onDraft: () => void;
   onReady: () => void;
+  onScenarios: () => void;
+  scenariosDone: number;
 }
 
-/** Os quatro modos, na ordem da tela inicial: Carreira, Desafio do dia, Draft, Seleção pronta. */
-export function ModeCards({ onCareer, hasCareer, onDaily, dailyDone, onDraft, onReady }: ModeHandlers) {
+/** Os modos, na ordem da tela inicial: Carreira, Desafio do dia, Cenários, Draft, Seleção pronta. */
+export function ModeCards({ onCareer, hasCareer, onDaily, dailyDone, onDraft, onReady, onScenarios, scenariosDone }: ModeHandlers) {
   return (
     <div className="choices modes">
       <button onClick={onCareer}>
@@ -18,6 +20,10 @@ export function ModeCards({ onCareer, hasCareer, onDaily, dailyDone, onDraft, on
       <button onClick={onDaily}>
         <b>Desafio do dia{dailyDone ? ' (já jogado hoje)' : ''}</b>
         <span>A data define a seed: todo mundo recebe a mesma seleção fraca e a mesma Copa. No fim, um resultado em texto, no estilo Wordle, para compartilhar. Sem rede e sem dados pessoais.</span>
+      </button>
+      <button onClick={onScenarios}>
+        <b>Cenários (uma partida){scenariosDone ? ` · ${scenariosDone} jogados` : ''}</b>
+        <span>Uma partida só contra uma seleção de outra época: o Uruguai contra o Brasil, os Estados Unidos contra o Brasil de 70, o Brasil de 70 contra o de hoje. Cinco minutos, o mesmo jogo para todo mundo, e um link para desafiar um amigo.</span>
       </button>
       <button onClick={onDraft}>
         <b>Monte a sua (draft por sorteio)</b>

@@ -15,7 +15,8 @@
     "golden": "tsx scripts/golden.ts",
     "licenses": "tsx scripts/licenses.ts",
     "modes-balance": "tsx scripts/modes-balance.ts",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "scenarios-balance": "tsx scripts/scenarios-balance.ts"
   },
   "dependencies": {
     "pixi.js": "^8.22.0",

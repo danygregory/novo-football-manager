@@ -15,6 +15,7 @@ import {
   type RoundOutcome,
   type Tournament,
 } from './tournament';
+import { createScenario, scenarioById } from './scenarios';
 import type { Lineup, MatchEvent, MatchReport, NationEra, World } from './types';
 
 /**
@@ -25,6 +26,7 @@ const world = worldJson as unknown as World;
 
 export interface Requests {
   createTournament: { nationId: string; squad: string[]; lineup: Lineup; seed: number; cut?: Cut; custom?: NationEra };
+  createScenario: { scenarioId: string; squad: string[]; lineup: Lineup };
   /** Simula a partida do usuário na rodada atual de uma vez (detalhe completo). */
   instantUserMatch: { tournament: Tournament };
   /** Fecha a rodada (IA joga os demais jogos) com o relatório da partida do usuário. */
@@ -51,6 +53,7 @@ export interface MatchDelta {
 
 export interface Responses {
   createTournament: Tournament;
+  createScenario: Tournament;
   instantUserMatch: { report: MatchReport; fixture: Fixture; userSide: 0 | 1; record: MatchRecord };
   playRound: RoundOutcome;
   playRemaining: Tournament;
@@ -82,6 +85,11 @@ function delta(withReport = false): MatchDelta {
 
 const handlers: { [K in RequestType]: (p: Requests[K]) => Responses[K] } = {
   createTournament: (p) => createTournament(world, p.nationId, p.squad, p.lineup, p.seed, { cut: p.cut, custom: p.custom }),
+  createScenario: (p) => {
+    const sc = scenarioById(p.scenarioId);
+    if (!sc) throw new Error(`Cenário desconhecido: ${p.scenarioId}`);
+    return createScenario(world, sc, p.squad, p.lineup);
+  },
   instantUserMatch: ({ tournament: t }) => {
     const fixture = userFixture(t, world);
     if (!fixture) throw new Error('O usuário não tem partida nesta rodada.');

@@ -28,7 +28,8 @@ class EngineClient {
     const id = this.nextId++;
     return new Promise<Responses[K]>((resolve, reject) => {
       this.pending.set(id, { resolve: resolve as (v: unknown) => void, reject });
-      this.ensure().postMessage({ id, type, ...payload });
+      // o id da mensagem vem por último: um campo `id` do pedido nunca o sobrescreve
+      this.ensure().postMessage({ ...payload, type, id });
     });
   }
 }

@@ -130,3 +130,11 @@ export function settings(v: unknown): Settings | undefined {
   if (v.speed === 2 || v.speed === 4) out.speed = v.speed;
   return out;
 }
+
+export interface ScenarioBest {
+  points: number;
+  text: string;
+  date: string;
+}
+export const scenarios = (v: unknown): Record<string, ScenarioBest> | undefined =>
+  record(v, 100, id, (x) => (isObj(x) ? all<ScenarioBest>({ points: int(x.points, 0, 100000), text: text(x.text, 80), date: date(x.date) }) : undefined));

@@ -45,3 +45,26 @@ export function cupShare(i: CupShareInput): { text: string; card: CardData } {
     },
   };
 }
+
+export interface ScenarioShareInput {
+  title: string;
+  team: string;
+  era: string;
+  opponent: string;
+  colors: { primary: string; secondary: string };
+  resultText: string;
+  won: boolean;
+  /** "2–1" do ponto de vista do usuário. */
+  score: string;
+  points: number;
+  link: string;
+  url: string;
+}
+
+export function scenarioShare(i: ScenarioShareInput): { text: string; card: CardData } {
+  const text = [`NOVO Football Manager · Cenário: ${i.title}`, `${i.won ? '✅' : '❌'} ${i.team} ${i.era} ${i.score} ${i.opponent} · ${i.resultText} · ${i.points} pts`, `Consegue fazer melhor? ${i.link}`].join('\n');
+  return {
+    text,
+    card: { mode: `Cenário · ${i.title}`, team: i.team, era: i.era, colors: i.colors, headline: i.resultText, champion: i.won, record: `${i.score} contra ${i.opponent}`, points: i.points, cta: 'Consegue fazer melhor?', url: i.url.replace(/^https?:\/\//, '') },
+  };
+}

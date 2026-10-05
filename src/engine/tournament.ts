@@ -88,6 +88,8 @@ export interface Tournament {
   /** Soma de (nota) e jogos por jogador, e gols. */
   stats: { goals: Record<string, number>; ratingSum: Record<string, number>; apps: Record<string, number> };
   champion?: string;
+  /** Cenário de partida única (ver scenarios.ts): só há a final entre o usuário e o adversário. */
+  scenario?: { id: string; opponent: string };
 }
 
 export interface Standing {
@@ -187,6 +189,7 @@ export function currentFixtures(t: Tournament, worldIn: World): Fixture[] {
   const world = worldIn;
   const st = t.stage;
   if (st === 'DONE') return [];
+  if (t.scenario) return st === 'F' ? [{ id: 'SCN', stage: 'F', home: t.userNationId, away: t.scenario.opponent }] : [];
   if (st === 'G1' || st === 'G2' || st === 'G3') {
     const md = STAGE_ORDER.indexOf(st);
     const out: Fixture[] = [];
