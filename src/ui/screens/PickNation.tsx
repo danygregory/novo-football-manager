@@ -92,7 +92,7 @@ export function PickNation({ initial, onPick, onBack }: { initial?: string; onPi
       {chosen && <PickDetail nation={chosen} rank={rank} inDecade={inDecade} />}
 
       <div className="panel pick-list" style={{ padding: 0 }}>
-        <table>
+        <table className="pick-table">
           <thead>
             <tr><th>Seleção</th><th>Período</th><th>Continente</th><th>Estilo</th><th className="num">Elo</th><th style={{ width: 150 }}>Na época</th></tr>
           </thead>

@@ -63,7 +63,7 @@ export function Squad({
         ))}
       </div>
       <div className="panel" style={{ overflowX: 'auto', padding: 0 }}>
-        <table>
+        <table className="squad-table">
           <thead>
             <tr>
               <th />

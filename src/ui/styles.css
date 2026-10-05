@@ -224,3 +224,14 @@ tr.clickable:focus-visible { outline-offset: -2px; background: var(--panel-2); }
 /* cenários */
 .scenario-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 12px; }
 .scenario-card .vs-line { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; font-size: .92rem; }
+
+/* celular */
+button, tr.clickable, select, summary { touch-action: manipulation; }
+@media (max-width: 640px) {
+  .app { padding: 12px 12px 48px; }
+  h1 { font-size: 1.5rem; }
+  /* convocação: sem estilo e atributos individuais (ficam o geral e a condição); escolha: sem continente, estilo e barra */
+  .squad-table th:nth-child(n+5):nth-child(-n+12), .squad-table td:nth-child(n+5):nth-child(-n+12) { display: none; }
+  .pick-table th:nth-child(3), .pick-table td:nth-child(3), .pick-table th:nth-child(4), .pick-table td:nth-child(4) { display: none; }
+  .scenario-grid { grid-template-columns: 1fr; }
+}
