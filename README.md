@@ -9,9 +9,17 @@ Manager de seleções históricas que roda inteiro no navegador. Você escolhe u
 ## Modos de jogo
 
 1. **Carreira de técnico:** comece com uma de 3 seleções fracas sorteadas e construa reputação Copa após Copa; depois de cada Copa chegam convites.
-2. **Desafio do dia:** a data define a seed: todo mundo recebe a mesma seleção fraca e a mesma Copa; resultado compartilhável em texto.
-3. **Monte a sua (draft):** sorteio de seleções-era, 1 jogador por rodada, 3 trocas de sorteio.
-4. **Seleção pronta:** escolha uma das 841 seleções-era (décadas de 1930 a 2020 e gerações de 4 a 8 anos) e convoque 23.
+2. **Desafio do dia:** a data define a seed: todo mundo recebe a mesma seleção fraca e a mesma Copa; resultado compartilhável.
+3. **Cenários (uma partida):** 8 jogos de mata-mata contra uma seleção de outra época ("Maracanazo", "Davi e Golias", "Brasil 70 contra Brasil de hoje"...), com seed fixa: o mesmo jogo para todo mundo. A escalação automática perde por pouco, então é preciso virar com elenco, tática e decisões. `npm run scenarios-balance` mostra a dificuldade de cada um.
+4. **Monte a sua (draft):** sorteio de seleções-era, 1 jogador por rodada, 3 trocas de sorteio.
+5. **Seleção pronta:** escolha uma das 841 seleções-era (décadas de 1930 a 2020 e gerações de 4 a 8 anos) e convoque 23.
+
+## Compartilhar
+
+- **Link de desafio:** ao fim de cada Copa ou cenário, um link (`#c=...`, tudo no endereço, nada vai a servidor) reabre a mesma Copa (seleção, recorte e seed) para um amigo tentar superar a sua pontuação.
+- **Cartão de resultado** em imagem (PNG) e texto com a grade de emojis, só com campanha e pontos: nunca nomes de jogadores nem dados pessoais.
+- **Clipe do gol:** o replay do gol é gravado no navegador (webm, com marca d'água) e pode ser salvo ou compartilhado.
+- **Nomes dos jogadores editáveis** (✎ na convocação): ficam só no seu navegador e no arquivo de save; não mudam a simulação.
 
 Dentro da partida: gritos táticos, substituição rápida, intervalo com conversa de vestiário, momentos de decisão (lesão, "tudo ou nada", pênalti) e cobranças de pênalti em tela própria.
 
@@ -74,3 +82,13 @@ Sem rede em runtime e sem dados pessoais. O build traz uma Content-Security-Poli
 Os resultados vêm de [martj42/international_results](https://github.com/martj42/international_results), licença **CC0 1.0** (veja `data/raw/LICENSE-martj42-CC0.txt`). Todas as dependências de produção são MIT, BSD ou ISC.
 
 **Licença do projeto:** ainda não definida pelo autor (sem arquivo `LICENSE`, todos os direitos reservados por padrão).
+
+## Publicar
+
+O workflow `.github/workflows/pages.yml` publica o build no GitHub Pages a cada push no `main`. Uma vez só: no repositório, **Settings > Pages > Source: GitHub Actions**. O endereço (`https://<usuario>.github.io/<repositório>/`) entra sozinho nas metatags de pré-visualização (Open Graph); em outro hospedeiro, defina `VITE_SITE_URL` no build. As imagens de pré-visualização e os ícones saem de `npm run make-assets` (usa o Chrome do sistema).
+
+O build usa caminhos relativos, então também funciona em subpasta ou em qualquer hospedagem estática.
+
+## Aviso
+
+Projeto de fãs, sem vínculo com a FIFA, confederações, federações ou jogadores. Seleções e épocas aparecem como referência histórica (força calculada de resultados públicos); todos os jogadores são fictícios e não há escudos nem nomes reais de atletas.

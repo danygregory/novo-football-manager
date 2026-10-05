@@ -163,8 +163,8 @@ export interface Achievement {
 }
 
 export const ACHIEVEMENTS: Achievement[] = [
-  { id: 'primeira-copa', name: 'Estreia em Copas', description: 'Complete a sua primeira Copa do Mundo.', check: (_s, c) => (c.previousCups ?? 0) === 0 },
-  { id: 'campeao', name: 'Campeão do mundo', description: 'Seja campeão da Copa.', check: (s) => s.facts.champion },
+  { id: 'primeira-copa', name: 'Estreia em Copas', description: 'Complete a sua primeira Copa.', check: (_s, c) => (c.previousCups ?? 0) === 0 },
+  { id: 'campeao', name: 'Campeão da Copa', description: 'Seja campeão da Copa.', check: (s) => s.facts.champion },
   { id: 'cinderela', name: 'Cinderela', description: 'Seja campeão com uma seleção do pote 4 (entre as mais fracas da Copa).', check: (s) => s.facts.champion && s.facts.pot === 4 },
   { id: 'azarao-final', name: 'Azarão na final', description: 'Chegue à final com uma seleção do pote 4.', check: (s) => s.ev.stage >= 4 && s.facts.pot === 4 },
   { id: 'zebra-grupo', name: 'Zebra de grupo', description: 'Classifique-se para o mata-mata com uma seleção do pote 4.', check: (s) => s.facts.qualified && s.facts.pot === 4 },

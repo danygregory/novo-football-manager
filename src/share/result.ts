@@ -36,7 +36,7 @@ export function cupShare(i: CupShareInput): { text: string; card: CardData } {
       team: i.team,
       era: i.era,
       colors: i.colors,
-      headline: ev.champion ? 'Campeã do mundo' : stageText,
+      headline: ev.champion ? 'Campeã da Copa' : stageText,
       champion: ev.champion,
       record,
       points: total,

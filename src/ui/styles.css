@@ -243,3 +243,5 @@ button, tr.clickable, select, summary { touch-action: manipulation; }
 .icon-btn { padding: 0 .35em; margin-left: .4em; border: none; background: transparent; color: var(--muted); font-size: .9rem; opacity: .7; }
 .icon-btn:hover:not(:disabled) { opacity: 1; color: var(--accent); }
 .name-edit { background: var(--panel-2); color: var(--text); border: 1px solid var(--accent); border-radius: 6px; padding: .2em .4em; font: inherit; width: 100%; max-width: 240px; }
+
+.home .legal { font-size: .78rem; max-width: 640px; margin: 22px auto 0; }

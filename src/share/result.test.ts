@@ -18,6 +18,6 @@ describe('texto e cartão de compartilhamento', () => {
     const r = cupShare({ ...base, summary: { ...summary, ev: { ...summary.ev, champion: true } } as CupSummary });
     expect(r.text).toContain('🏆');
     expect(r.text).toContain('Jogue em https://x.dev/jogo/');
-    expect(r.card.headline).toBe('Campeã do mundo');
+    expect(r.card.headline).toBe('Campeã da Copa');
   });
 });

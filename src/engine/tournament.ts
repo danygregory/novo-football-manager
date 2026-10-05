@@ -6,7 +6,7 @@ import { Rng, hashSeed } from './prng';
 import { ENGINE_VERSION, EngineVersionError } from './version';
 import type { Decade, Lineup, MatchReport, NationEra, Player, World } from './types';
 
-/** Copa do Mundo: 8 grupos de 4, os 2 primeiros avançam; oitavas, quartas, semifinais e final. */
+/** Copa de 32 seleções: 8 grupos de 4, os 2 primeiros avançam; oitavas, quartas, semifinais e final. */
 export type Stage = 'G1' | 'G2' | 'G3' | 'R16' | 'QF' | 'SF' | 'F' | 'DONE';
 
 export const STAGE_ORDER: Stage[] = ['G1', 'G2', 'G3', 'R16', 'QF', 'SF', 'F', 'DONE'];

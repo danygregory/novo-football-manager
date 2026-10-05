@@ -30,6 +30,8 @@ const cspPlugin = (): Plugin => ({
 });
 
 export default defineConfig({
+  // caminhos relativos: o build funciona na raiz de um domínio e em subpasta (GitHub Pages)
+  base: './',
   plugins: [react(), cspPlugin()],
   worker: { format: 'es' },
   test: { include: ['src/**/*.test.ts', 'scripts/**/*.test.ts'], environment: 'node' },

@@ -22,7 +22,7 @@ export function CupEnd({ t, onNewCup, onHome, extra, hideActions }: { t: Tournam
   return (
     <div className="end">
       <div className="trophy">🏆</div>
-      <h1>{iWon ? 'Campeão do mundo!' : 'Fim da Copa'}</h1>
+      <h1>{iWon ? 'Campeão da Copa!' : 'Fim da Copa'}</h1>
       <h2><NationName nation={champion} /></h2>
       {runnerUp && <div className="muted">Vice-campeã: {nationLabel(runnerUp)}</div>}
       <div className="awards">

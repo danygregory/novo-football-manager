@@ -7,7 +7,7 @@ export function Home({ modes, onLoad, canLoad, onAchievements }: { modes: ModeHa
         NOVO <span style={{ color: 'var(--accent)' }}>Football Manager</span>
       </h1>
       <p>
-        Escolha uma seleção de uma era histórica, convoque, defina a tática e dispute uma Copa do Mundo. A força vem de resultados reais; os jogadores são todos fictícios.
+        Escolha uma seleção de uma era histórica, convoque, defina a tática e dispute uma Copa de 32 seleções. A força vem de resultados reais; os jogadores são todos fictícios.
       </p>
       <div style={{ textAlign: 'left', maxWidth: 900, margin: '0 auto 18px' }}>
         <ModeCards {...modes} />
@@ -20,6 +20,9 @@ export function Home({ modes, onLoad, canLoad, onAchievements }: { modes: ModeHa
           Carregar save
         </button>
       </div>
+      <p className="muted legal">
+        Projeto de fãs, sem vínculo com a FIFA, confederações, federações ou jogadores. As seleções e épocas aparecem só como referência histórica (a força vem de resultados públicos); todos os jogadores são fictícios.
+      </p>
     </div>
   );
 }
