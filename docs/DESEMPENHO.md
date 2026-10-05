@@ -12,7 +12,7 @@ Auditoria de código: medir antes de mexer, provar depois que o comportamento n�
 | Resumos factuais das seleções | dentro do `world.json` (e do worker) | **283 KB à parte (`summaries.json`), baixados só ao ver os detalhes de uma seleção** |
 | `world.json` | 577 KB | **309 KB** |
 | `npm run calibrate` (30.000 jogos) | 16,9 s | **14,4 s** |
-| Motor (partida completa) | ~0,37 ms | ~0,31 ms (estimado pelo calibrate) |
+| Motor (partida completa, medido no início da auditoria) | 0,37 ms | queda proporcional à do `calibrate` (cerca de 15%) |
 | Coreografia (22 agentes) | 7,7 µs por passo fixo (0,6 ms por segundo a 4x) | sem mudança: já era desprezível |
 
 O gargalo de tempo real não é o motor (menos de 0,4 ms por jogo) nem a coreografia: era o tamanho do que o navegador baixa e interpreta antes da primeira tela.
@@ -27,7 +27,7 @@ O gargalo de tempo real não é o motor (menos de 0,4 ms por jogo) nem a coreogr
 
 ## Como se provou que nada mudou
 
-`npm run golden` simula 120 partidas (com e sem comandos, mata-mata, detalhe completo e resumo) e compara o hash de cada relatório com o baseline em `data/golden-engine.txt`. Depois de todas as mudanças: **120 de 120 idênticas**, e a calibração dá exatamente os mesmos números (2,64 gols por jogo, 24,6% de empates). Se o motor for alterado de propósito, `npm run golden -- --update` grava o novo baseline.
+`npm run golden` simula 120 partidas (mais uma em pedaços com comandos) (com e sem comandos, mata-mata, detalhe completo e resumo) e compara o hash de cada relatório com o baseline em `data/golden-engine.txt`. Depois de todas as mudanças: **121 de 121 idênticas**, e a calibração dá exatamente os mesmos números (2,64 gols por jogo, 24,6% de empates). Se o motor for alterado de propósito, `npm run golden -- --update` grava o novo baseline.
 
 ## O que ficou como está (e por quê)
 
