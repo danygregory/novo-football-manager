@@ -438,7 +438,7 @@ function MainApp() {
             <>
               <Kit nation={user} />
               <b>{nationLabel(user)}</b>
-              {t && <> · {STAGE_LABEL[t.stage]}</>}
+              {t && <> · {t.scenario && t.stage === 'DONE' ? 'Cenário encerrado' : STAGE_LABEL[t.stage]}</>}
             </>
           )}
         </div>
