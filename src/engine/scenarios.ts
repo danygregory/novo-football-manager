@@ -28,7 +28,7 @@ export const SCENARIOS: readonly Scenario[] = [
   { id: 'brasil-contra-brasil', title: 'Brasil 70 contra Brasil de hoje', blurb: 'Dá para o Brasil dos anos 70 vencer o dos anos 20? A pergunta que todo bar já fez.', user: 'BRA-1970', opponent: 'BRA-2020', salt: 2 },
   { id: 'tiki-taka', title: 'Tiki-taka contra os pioneiros', blurb: 'A Espanha de 2010–13 contra a Hungria de 1954–57: o futebol de posse de bola, moderno e antigo, frente a frente.', user: 'ESP-2010-2013', opponent: 'HUN-1954-1957', salt: 16 },
   { id: 'laranja', title: 'A máquina laranja', blurb: 'A Holanda dos anos 70 contra a Alemanha Ocidental. Futebol total contra eficiência.', user: 'NED-1970', opponent: 'GER-1970', salt: 1 },
-  { id: 'final-moderna', title: 'Final dos anos 20', blurb: 'Argentina contra França, as duas seleções mais fortes da década. Decida nos detalhes (e talvez nos pênaltis).', user: 'ARG-2020', opponent: 'FRA-2020', salt: 1 },
+  { id: 'final-moderna', title: 'Final dos anos 20', blurb: 'Argentina contra França, finalistas da Copa de 2022. Decida nos detalhes (e talvez nos pênaltis).', user: 'ARG-2020', opponent: 'FRA-2020', salt: 1 },
   { id: 'caiu-no-grupo', title: 'A zebra africana', blurb: 'Camarões dos anos 70 contra a Inglaterra da mesma época. Ninguém dá nada pela sua seleção, e é por isso que vale.', user: 'CMR-1970', opponent: 'ENG-1970', salt: 0 },
 ];
 
