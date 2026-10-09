@@ -117,21 +117,29 @@ function MainApp() {
     }
   };
 
-  const startCup = (lineup: Lineup, cut: Cut, fixedSeed?: number) =>
-    guarded(async () => {
+  /** Só existe um slot de partida em andamento ('run'): antes de substituí-lo por uma Copa ou cenário novo, avisa o que será perdido. */
+  const confirmReplaceRun = () =>
+    !runInfo || confirm(`Você tem uma partida em andamento: ${runInfo.label} (${runInfo.stage}). Começar outra vai descartá-la. Continuar?`);
+
+  const startCup = (lineup: Lineup, cut: Cut, fixedSeed?: number) => {
+    if (!confirmReplaceRun()) return Promise.resolve();
+    return guarded(async () => {
       const seed = fixedSeed ?? Math.floor(Math.random() * 2 ** 32);
       const custom = g.mode === 'draft' ? nationsById.get(g.nationId as string) : undefined;
       const tournament = await engine.call('createTournament', { nationId: g.nationId as string, squad: g.called, lineup, seed, cut, custom: custom?.custom ? custom : undefined });
       setG((prev) => ({ ...prev, lineup, cut, tournament, screen: 'cup', last: undefined, scored: undefined }));
     });
+  };
 
   /** Cenário: elenco e escalação já definidos (ou automáticos) -> cria a partida e vai à apresentação do jogo. */
-  const startScenario = (sc: Scenario, called: string[], lineup: Lineup) =>
-    guarded(async () => {
+  const startScenario = (sc: Scenario, called: string[], lineup: Lineup) => {
+    if (!confirmReplaceRun()) return Promise.resolve();
+    return guarded(async () => {
       registerCustom(undefined);
       const tournament = await engine.call('createScenario', { scenarioId: sc.id, squad: called, lineup });
       setG((prev) => ({ ...prev, mode: 'scenario', scenario: sc, nationId: sc.user, called, lineup, tournament, scenarioOutcome: undefined, scored: undefined, last: undefined, screen: 'match' }));
     });
+  };
 
   const playScenarioNow = (sc: Scenario) => {
     const nation = nationsById.get(sc.user);

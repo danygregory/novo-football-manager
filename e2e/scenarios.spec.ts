@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
-import { btn, watchErrors } from './helpers';
+import { btn, startReadyCup, watchErrors } from './helpers';
 
 test('cenário: jogar já, resultado com pontos, compartilhar e o link do amigo abre o mesmo cenário', async ({ page, context }) => {
   const errors = watchErrors(page);
@@ -43,4 +43,37 @@ test('cenário ao vivo com escalação própria: Escalar o time leva a convocaç
   await btn(page, 'Confirmar').click();
   await btn(page, 'Jogar o cenário').click();
   await expect(btn(page, /Assistir \(2x\)/)).toBeVisible();
+});
+
+// Regression: ISSUE-005 — só existe um slot de partida em andamento; iniciar um cenário apagava a Copa salva sem avisar
+// Found by /qa on 2026-10-09
+test('Copa em andamento: iniciar um cenário avisa antes de descartá-la e, se cancelar, a Copa continua salva', async ({ page }) => {
+  const errors = watchErrors(page);
+  const messages: string[] = [];
+  let accept = false;
+  page.on('dialog', (d) => {
+    messages.push(d.message());
+    void (accept ? d.accept() : d.dismiss());
+  });
+  await startReadyCup(page);
+  await page.goto('/');
+  await expect(page.getByText(/Continuar: Brasil/)).toBeVisible();
+
+  // cancelar: o aviso aparece, o cenário não começa e a Copa segue salva
+  await btn(page, /Cenários/).click();
+  await btn(page, 'Jogar já').click();
+  await expect.poll(() => messages.length).toBe(1);
+  expect(messages[0]).toMatch(/partida em andamento: Brasil/);
+  await expect(page.getByRole('heading', { name: 'Cenários' })).toBeVisible();
+  await page.goto('/');
+  await expect(page.getByText(/Continuar: Brasil/)).toBeVisible();
+
+  // aceitar: o cenário começa e passa a ser a partida salva
+  accept = true;
+  await btn(page, /Cenários/).click();
+  await btn(page, 'Jogar já').click();
+  await expect(btn(page, /Assistir \(2x\)/)).toBeVisible();
+  await page.goto('/');
+  await expect(page.getByText('Continuar: O milagre de Berna')).toBeVisible();
+  expect(errors).toEqual([]);
 });
