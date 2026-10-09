@@ -7,7 +7,9 @@ import { nationsById } from '../world';
 import { nameOverrides } from '../../data/squads';
 import { renamePlayer, restoreNames } from '../names';
 
-const FILTERS: [Position | 'ALL', string][] = [['ALL', 'Todos'], ['GK', 'Goleiros'], ['DEF', 'Defensores'], ['MID', 'Meias'], ['FWD', 'Atacantes']];
+const INVALID_SQUAD_HINT = 'Convoque exatamente 23 jogadores, com ao menos 2 goleiros';
+
+const FILTERS: [Position | 'ALL', string][] =[['ALL', 'Todos'], ['GK', 'Goleiros'], ['DEF', 'Defensores'], ['MID', 'Meias'], ['FWD', 'Atacantes']];
 
 export function Squad({
   nationId, initial, onConfirm, onBack, readOnly, cond,
@@ -53,6 +55,7 @@ export function Squad({
           <div className="muted">
             {readOnly ? 'Seus 23 convocados.' : `Escolha 23 de ${squadOf(nation).length}.`} Goleiros {gks} · Defensores {count('DEF')} · Meias {count('MID')} · Atacantes {count('FWD')}
           </div>
+          {!readOnly && !valid && <div className="muted" role="status">{INVALID_SQUAD_HINT}</div>}
         </div>
         <div className="row">
           <span className={`chip ${valid ? 'accent' : ''}`}>{called.size}/23</span>
@@ -61,7 +64,7 @@ export function Squad({
           )}
           {!readOnly && <button onClick={() => setCalled(new Set(autoSquad23(squadOf(nation)).map((p) => p.id)))}>Convocação automática</button>}
           <button className={readOnly ? 'primary' : 'ghost'} onClick={onBack}>Voltar</button>
-          {!readOnly && <button className="primary" disabled={!valid} onClick={() => onConfirm([...called])} title={valid ? '' : 'Convoque exatamente 23 jogadores, com ao menos 2 goleiros'}>
+          {!readOnly && <button className="primary" disabled={!valid} onClick={() => onConfirm([...called])} title={valid ? '' : INVALID_SQUAD_HINT}>
             Confirmar
           </button>}
         </div>
