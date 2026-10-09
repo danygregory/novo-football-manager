@@ -78,6 +78,8 @@ tr.clickable:hover td { background: var(--panel-2); }
 .group.mine { border-color: var(--accent); }
 .group h3 { margin-bottom: 6px; }
 .group td, .group th { padding: .25em .4em; font-size: .88rem; }
+/* o nowrap global deixava "Alemanha Ocidental 70" mais larga que o card: o nome pode quebrar, os números não */
+.group td:first-child { white-space: normal; }
 tr.qual td:first-child { box-shadow: 3px 0 0 var(--good) inset; }
 tr.me td { color: var(--accent); font-weight: 650; }
 
