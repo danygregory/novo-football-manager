@@ -5,3 +5,8 @@ dist
 tune-best.json
 test-results/
 playwright-report/
+
+# variáveis locais: nunca versionar (o modelo fica em .env.example)
+.env
+.env.local
+.env.*.local

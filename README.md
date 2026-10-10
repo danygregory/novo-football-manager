@@ -85,7 +85,7 @@ Os resultados vêm de [martj42/international_results](https://github.com/martj42
 
 ## Publicar
 
-O workflow `.github/workflows/pages.yml` publica o build no GitHub Pages a cada push no `main`. Uma vez só: no repositório, **Settings > Pages > Source: GitHub Actions**. O endereço (`https://<usuario>.github.io/<repositório>/`) entra sozinho nas metatags de pré-visualização (Open Graph); em outro hospedeiro, defina `VITE_SITE_URL` no build. As imagens de pré-visualização e os ícones saem de `npm run make-assets` (usa o Chrome do sistema).
+O workflow `.github/workflows/pages.yml` publica o build no GitHub Pages a cada push no `main`. Uma vez só: no repositório, **Settings > Pages > Source: GitHub Actions**. O endereço (`https://<usuario>.github.io/<repositório>/`) entra sozinho nas metatags de pré-visualização (Open Graph); em outro hospedeiro, defina `VITE_SITE_URL` no build (em desenvolvimento, copie `.env.example` para `.env`, que não é versionado; sem ele o build só avisa que a variável não existe). As imagens de pré-visualização e os ícones saem de `npm run make-assets` (usa o Chrome do sistema).
 
 O build usa caminhos relativos, então também funciona em subpasta ou em qualquer hospedagem estática.
 
