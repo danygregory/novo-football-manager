@@ -119,9 +119,15 @@ describe('rodada', () => {
       seed: fixtureSeed(t, mine),
       detail: 'summary',
     });
-    const before = t.cond[t.userLineup.starters[5] as string] as number;
+    // a média dos 11 titulares, não um jogador só: quanto um jogador específico cansa depende do adversário sorteado
+    const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+    const ids = t.userLineup.starters as string[];
+    const before = mean(ids.map((id) => t.cond[id] as number));
+    const atWhistle = mean(ids.map((id) => report.finalCondition[id] as number));
     t = playRound(world, t, report).tournament;
-    const after = t.cond[t.userLineup.starters[5] as string] as number;
+    const after = mean(ids.map((id) => t.cond[id] as number));
+    expect(atWhistle, 'jogar cansa').toBeLessThan(before);
+    expect(after, 'entre os jogos só se recupera parte do cansaço').toBeGreaterThan(atWhistle);
     expect(after).toBeLessThan(before + 5);
   });
 });
