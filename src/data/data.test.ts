@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { FORMATION_SLOTS } from '../engine/formations';
 import { overall } from '../engine/player';
 import type { World } from '../engine/types';
+import { COUNTRY_BY_NAME } from './countries';
 import { parseCsv } from './csv';
 import { computeElo, toRawMatches } from './elo';
 import { SQUAD_SIZE, generateSquad } from './squad';
@@ -110,6 +111,52 @@ describe('world.json', () => {
   it('traz média de gols por década', () => {
     expect(committed.decades.map((d) => d.decade)).toEqual([1930, 1940, 1950, 1960, 1970, 1980, 1990, 2000, 2010, 2020]);
     for (const d of committed.decades) expect(d.goalsPerMatchCompetitive).toBeGreaterThan(1.5);
+  });
+});
+
+describe('gerações das melhores seleções do mundo', () => {
+  const peaks = committed.nations.filter((n) => n.kind === 'peak');
+  /** Anos da janela cobertos pelas gerações da seleção (elas não se sobrepõem). Uma geração tem no mínimo 4 anos, então um buraco de 1 ano entre duas não cabe outra. */
+  const yearsCovered = (code: string, from: number, to: number) => peaks.filter((p) => p.code === code).reduce((s, p) => s + Math.max(0, Math.min(p.span[1], to) - Math.max(p.span[0], from) + 1), 0);
+  /** A janela fica coberta quando pelo menos 3 dos 5 anos pertencem a gerações da seleção. */
+  const covers = (code: string, from: number, to: number) => yearsCovered(code, from, to) >= 3;
+
+  it('toda seleção entre as 3 mais fortes do mundo em uma janela de 5 anos (1930 a 2024) tem uma geração que a cobre', () => {
+    const { log } = computeElo(toRawMatches(parseCsv(csv)));
+    const ym = new Map<number, { s: number; n: number }>();
+    for (const e of log) {
+      const v = ym.get(e.year) ?? { s: 0, n: 0 };
+      v.s += e.own;
+      v.n++;
+      ym.set(e.year, v);
+    }
+    const missing: string[] = [];
+    for (let from = 1930; from <= 2020; from += 5) {
+      const agg = new Map<string, { n: number; rel: number }>();
+      for (const e of log) {
+        if (e.year < from || e.year > from + 4 || !COUNTRY_BY_NAME.has(e.team)) continue;
+        const a = agg.get(e.team) ?? { n: 0, rel: 0 };
+        a.n++;
+        a.rel += e.own - ym.get(e.year)!.s / ym.get(e.year)!.n;
+        agg.set(e.team, a);
+      }
+      const top3 = [...agg].filter(([, a]) => a.n >= 10).sort((a, b) => b[1].rel / b[1].n - a[1].rel / a[1].n).slice(0, 3);
+      for (const [team] of top3) if (!covers(COUNTRY_BY_NAME.get(team)!.code, from, from + 4)) missing.push(`${team} ${from}-${from + 4}`);
+    }
+    expect(missing, 'seleções entre as 3 melhores da janela, sem geração').toEqual([]);
+  });
+
+  it('inclui as grandes seleções que a regra antiga deixava de fora (Brasil 1960 e 1970, Itália 1938, Inglaterra 1966)', () => {
+    for (const [code, from, to] of [['BRA', 1960, 1964], ['BRA', 1970, 1974], ['BRA', 1980, 1984], ['ITA', 1935, 1939], ['ENG', 1965, 1969], ['GER', 1990, 1994], ['ARG', 1950, 1954]] as const) {
+      expect(covers(code, from, to), `${code} ${from}-${to}`).toBe(true);
+    }
+  });
+
+  it('o resumo de uma geração dominante não diz que ela ficou acima da média da própria seleção', () => {
+    const bra70 = peaks.find((p) => p.code === 'BRA' && p.span[0] <= 1974 && p.span[1] >= 1970)!;
+    expect(bra70, 'geração do Brasil de 1970').toBeTruthy();
+    expect(summaries[bra70.id]).toMatch(/mais fortes do mundo/);
+    expect(summaries[bra70.id]).not.toContain('acima da média histórica');
   });
 });
 

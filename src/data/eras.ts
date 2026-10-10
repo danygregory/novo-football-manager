@@ -11,11 +11,43 @@ export interface PeakWindow {
   meanElo: number;
   /** Quanto a média da janela passa da média da seleção (pontos de Elo). */
   gain: number;
+  /** Só nas gerações escolhidas por serem as mais fortes do mundo na janela: a posição (1 a `WORLD_TOP_COUNT`). */
+  worldRank?: number;
 }
 
 export const PEAK_MIN_YEARS = 4;
 export const PEAK_MAX_YEARS = 8;
 export const PEAK_MIN_GAIN = 55;
+/** Janelas fixas de 5 anos (1930-34, 1935-39...) em que se escolhem as seleções mais fortes do mundo. */
+export const WORLD_TOP_YEARS = 5;
+export const WORLD_TOP_COUNT = 3;
+
+/**
+ * Gerações das seleções mais fortes do mundo: em cada janela fixa de 5 anos, as `WORLD_TOP_COUNT` seleções de maior Elo médio
+ * relativo ao ano (`yearMean`, descontando a inflação), com pelo menos `minMatches` jogos na janela. Ao contrário de `findPeaks`,
+ * não compara a seleção com a própria média: o Brasil de 1970, sempre forte, não ficava acima da média da própria carreira.
+ */
+export function findWorldTopWindows(log: TeamMatch[], eligible: (team: string) => boolean, minMatches: number, yearMean: Map<number, number>, firstYear = 1930, lastYear = 2026): PeakWindow[] {
+  const out: PeakWindow[] = [];
+  for (let from = firstYear; from <= lastYear; from += WORLD_TOP_YEARS) {
+    const to = from + WORLD_TOP_YEARS - 1;
+    const agg = new Map<string, { n: number; rel: number; abs: number }>();
+    for (const e of log) {
+      if (e.year < from || e.year > to || !eligible(e.team)) continue;
+      const a = agg.get(e.team) ?? { n: 0, rel: 0, abs: 0 };
+      a.n++;
+      a.rel += e.own - (yearMean.get(e.year) ?? e.own);
+      a.abs += e.own;
+      agg.set(e.team, a);
+    }
+    [...agg]
+      .filter(([, a]) => a.n >= minMatches)
+      .sort((a, b) => b[1].rel / b[1].n - a[1].rel / a[1].n || a[0].localeCompare(b[0]))
+      .slice(0, WORLD_TOP_COUNT)
+      .forEach(([team, a], i) => out.push({ team, from, to, matches: a.n, meanElo: a.abs / a.n, gain: a.rel / a.n, worldRank: i + 1 }));
+  }
+  return out;
+}
 
 /**
  * Detecta os picos de geração de uma seleção: janelas de 4 a 8 anos com pelo menos `minMatches` jogos e Elo médio

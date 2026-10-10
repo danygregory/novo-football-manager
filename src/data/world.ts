@@ -1,10 +1,10 @@
 import { COUNTRY_BY_NAME, eraContinent, eraName, type CountryMeta } from './countries';
 import { COMPETITIVE_ELO, DECADES, computeElo, toRawMatches, type TeamMatch } from './elo';
-import { findPeaks, summarize, windowStats, type WindowStats } from './eras';
+import { PEAK_MIN_YEARS, findPeaks, findWorldTopWindows, summarize, windowStats, type PeakWindow, type WindowStats } from './eras';
 import { parseCsv } from './csv';
 import type { Continent, Decade, DecadeStats, NationEra, PlayStyle, World } from '../engine/types';
 
-export const WORLD_VERSION = 4;
+export const WORLD_VERSION = 5;
 /** Mínimo de jogos da seleção na década para virar seleção-era (ajustável por `--min` no build-world). */
 export const DEFAULT_MIN_MATCHES = 15;
 /** Mínimo de jogos de uma geração (4 a 8 anos): menor que o da década porque as seleções jogavam bem menos antigamente. */
@@ -21,6 +21,23 @@ interface Candidate {
   elo: number;
   /** 0 (mais fraco) a 1 (mais forte) entre candidatos da década. */
   pct: number;
+  /** Só nas gerações escolhidas por estarem entre as mais fortes do mundo no período (1 a `WORLD_TOP_COUNT`). */
+  worldRank?: number;
+}
+
+/** Maior trecho contínuo de anos de [from, to] que não toca as gerações `taken`; `undefined` se tiver menos de `PEAK_MIN_YEARS` anos. */
+function freeSegment(from: number, to: number, taken: readonly PeakWindow[]): [number, number] | undefined {
+  let best: [number, number] | undefined;
+  let start: number | undefined;
+  for (let y = from; y <= to + 1; y++) {
+    const free = y <= to && !taken.some((p) => y >= p.from && y <= p.to);
+    if (free && start === undefined) start = y;
+    if (!free && start !== undefined) {
+      if (!best || y - start > best[1] - best[0] + 1) best = [start, y - 1];
+      start = undefined;
+    }
+  }
+  return best && best[1] - best[0] + 1 >= PEAK_MIN_YEARS ? best : undefined;
 }
 
 export function strengthFromElo(elo: number): number {
@@ -81,13 +98,27 @@ export function buildWorldAndSummaries(resultsCsv: string, minMatches = DEFAULT_
   const yearMean = new Map([...yearAcc].map(([y, a]) => [y, a.sum / a.n] as const));
   const byTeam = new Map<string, typeof log>();
   for (const e of log) if (COUNTRY_BY_NAME.has(e.team)) byTeam.set(e.team, [...(byTeam.get(e.team) ?? []), e]);
+  // além disso, as mais fortes do mundo em cada janela de 5 anos (o critério acima compara com a própria média e deixava de fora
+  // as seleções dominantes por décadas, como o Brasil de 1970); as gerações já existentes da seleção têm prioridade, sem sobreposição
+  const peakMinMatches = Math.min(minMatches, PEAK_MIN_MATCHES);
+  const worldTop = findWorldTopWindows(log, (t) => COUNTRY_BY_NAME.has(t), peakMinMatches, yearMean);
   for (const [team, entries] of [...byTeam].sort((a, b) => a[0].localeCompare(b[0]))) {
     const meta = COUNTRY_BY_NAME.get(team) as CountryMeta;
-    for (const peak of findPeaks(entries, Math.min(minMatches, PEAK_MIN_MATCHES), yearMean)) {
+    const own = findPeaks(entries, peakMinMatches, yearMean);
+    const extra: PeakWindow[] = [];
+    for (const w of worldTop.filter((x) => x.team === team)) {
+      // a geração das mais fortes do mundo não pode sobrepor as da própria seleção: fica com o maior trecho livre, se couber (mínimo de 4 anos)
+      const seg = freeSegment(w.from, w.to, own);
+      if (!seg) continue;
+      const slice = entries.filter((e) => e.year >= seg[0] && e.year <= seg[1]);
+      if (slice.length < peakMinMatches) continue;
+      extra.push({ ...w, from: seg[0], to: seg[1], matches: slice.length, meanElo: slice.reduce((s, e) => s + e.own, 0) / slice.length });
+    }
+    for (const peak of [...own, ...extra] as PeakWindow[]) {
       const slice = entries.filter((e) => e.year >= peak.from && e.year <= peak.to);
       const mid = Math.floor((peak.from + peak.to) / 2 / 10) * 10;
       const decade = Math.max(1930, Math.min(2020, mid)) as Decade;
-      candidates.push({ meta, decade, continent: eraContinent(meta, decade), acc: windowStats(slice), elo: peak.meanElo, pct: 0, kind: 'peak', span: [peak.from, peak.to], entries: slice });
+      candidates.push({ meta, decade, continent: eraContinent(meta, decade), acc: windowStats(slice), elo: peak.meanElo, pct: 0, kind: 'peak', span: [peak.from, peak.to], entries: slice, worldRank: peak.worldRank });
     }
   }
 
@@ -117,7 +148,9 @@ export function buildWorldAndSummaries(resultsCsv: string, minMatches = DEFAULT_
       const country = eraName(c.meta, c.decade);
       const label = peak ? `${country} ${c.span[0]}–${String(c.span[1]).slice(2)}` : `${country} anos ${String(c.decade).slice(2)}`;
       const rankText = peak
-        ? `Geração acima da média histórica da seleção (Elo ${Math.round(elo)}), no nível do percentil ${percentile} da década de ${c.decade}.`
+        ? c.worldRank
+          ? `Uma das seleções mais fortes do mundo no período (Elo ${Math.round(elo)}), a ${c.worldRank}ª em força entre todas as seleções de ${c.span[0]} a ${c.span[1]}, no nível do percentil ${percentile} da década de ${c.decade}.`
+          : `Geração acima da média histórica da seleção (Elo ${Math.round(elo)}), no nível do percentil ${percentile} da década de ${c.decade}.`
         : `${rankInDecade(pool, elo)}ª entre as ${pool.length} seleções da década, com Elo médio ${Math.round(elo)}.`;
       summaries[id] = summarize(c.entries, peak ? `${label.replace(country + ' ', '')}` : `${c.decade}–${String(c.decade + 9).slice(2)}`, rankText);
       return {
