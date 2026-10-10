@@ -5,7 +5,7 @@
 Há duas populações:
 
 - **Nível da Copa** (seleções-era com Elo >= 1650): é a população das metas do prompt e a que se compara com os jogos reais entre seleções desse nível.
-- **Mundo inteiro** (todas as 841 seleções-era, inclusive as fracas): confere o comportamento contra seleções fracas, comparado com todos os jogos reais da base (1930 em diante, sem amistosos).
+- **Mundo inteiro** (todas as 872 seleções-era, inclusive as fracas): confere o comportamento contra seleções fracas, comparado com todos os jogos reais da base (1930 em diante, sem amistosos).
 
 ## Alvos e resultado (20.000 jogos, nível da Copa)
 
@@ -83,18 +83,18 @@ Por jogo, entre seleções-era sorteadas: impedimento 3,1; defesa difícil 0,75;
 
 Robô guloso: a cada rodada escolhe o melhor jogador disponível (nota x encaixe) para uma vaga vazia, e só troca o sorteio (3 trocas) quando a melhor opção vale menos de 60. Depois joga uma Copa com todas as eras, com o time controlado pela mesma IA das outras seleções.
 
-Resultado com **1.000 drafts**, formações alternadas, Copa de todas as eras (sorteio com potes por força; 841 seleções-era no sorteio, com as gerações e os craques da Fase 6.7):
+Resultado com **1.000 drafts**, formações alternadas, Copa de todas as eras (sorteio com potes por força; 872 seleções-era no sorteio, com as gerações e os craques da Fase 6.7):
 
 | Fase mais longe | % dos drafts |
 | --- | --- |
-| Campeão | **16,6%** |
-| Vice | 11,1% |
-| Semifinal | 15,3% |
-| Quartas | 22,8% |
-| Oitavas | 24,3% |
-| Grupos | 9,9% |
+| Campeão | **16,9%** |
+| Vice | 7,5% |
+| Semifinal | 15,6% |
+| Quartas | 20,5% |
+| Oitavas | 29,4% |
+| Grupos | 10,1% |
 
-O alvo era campeão em menos de 40%: o robô vence 16,6% das Copas (contra 3,1% de uma seleção qualquer entre 32). O Elo médio do time do robô é 2.363 contra 1.748 dos adversários, e mesmo assim o mata-mata é de partida única, com zebras. A diferença está em escolher só entre os 40 jogadores de uma seleção sorteada ao acaso (muitas fracas) e ainda ter de preencher cada posição.
+O alvo era campeão em menos de 40%: o robô vence 16,9% das Copas (contra 3,1% de uma seleção qualquer entre 32). O Elo médio do time do robô é 2.368 contra 1.749 dos adversários, e mesmo assim o mata-mata é de partida única, com zebras. A diferença está em escolher só entre os 40 jogadores de uma seleção sorteada ao acaso (muitas fracas) e ainda ter de preencher cada posição.
 
 ## Limites conhecidos
 

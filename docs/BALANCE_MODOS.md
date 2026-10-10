@@ -35,4 +35,4 @@
 
 **Desafio do dia** (200 dias): mediana de 14 pontos; grupos 63,5%, oitavas 20,0%, quartas 11,5%, semifinal 2,0%, vice 1,5%, campeão 1,5%. Com tática automática, cerca de 3 de cada 10 dias chegam ao mata-mata; com decisões de um humano, mais.
 
-**Conquistas** (2.000 Copas simuladas, em % das Copas): todas foram desbloqueadas pelo robô, exceto **Campeão do draft**, que o script não simula (o `draft-balance` mostra 16,6% de títulos para o robô guloso). As mais raras: Cinderela (0,05%), Desafio perfeito (0,15%), Azarão na final (0,2%), Defesa de ferro (0,4%) e Festival de gols (0,95%): pensadas como "lendárias". As comuns: Virada (21,5%), Muralha (11%) e Fase de grupos perfeita (8,6%).
+**Conquistas** (2.000 Copas simuladas, em % das Copas): todas foram desbloqueadas pelo robô, exceto **Campeão do draft**, que o script não simula (o `draft-balance` mostra 16,9% de títulos para o robô guloso). As mais raras: Cinderela (0,05%), Desafio perfeito (0,15%), Azarão na final (0,2%), Defesa de ferro (0,4%) e Festival de gols (0,95%): pensadas como "lendárias". As comuns: Virada (21,5%), Muralha (11%) e Fase de grupos perfeita (8,6%).

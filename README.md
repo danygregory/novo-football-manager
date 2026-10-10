@@ -12,7 +12,7 @@ Manager de seleções históricas que roda inteiro no navegador. Você escolhe u
 2. **Desafio do dia:** a data define a seed: todo mundo recebe a mesma seleção fraca e a mesma Copa; resultado compartilhável.
 3. **Cenários (uma partida):** 8 jogos de mata-mata contra uma seleção de outra época ("Maracanazo", "Davi e Golias", "Brasil 70 contra Brasil de hoje"...), com seed fixa: o mesmo jogo para todo mundo. A escalação automática perde por pouco, então é preciso virar com elenco, tática e decisões. `npm run scenarios-balance` mostra a dificuldade de cada um.
 4. **Monte a sua (draft):** sorteio de seleções-era, 1 jogador por rodada, 3 trocas de sorteio.
-5. **Seleção pronta:** escolha uma das 841 seleções-era (décadas de 1930 a 2020 e gerações de 4 a 8 anos) e convoque 23.
+5. **Seleção pronta:** escolha uma das 872 seleções-era (décadas de 1930 a 2020 e gerações de 4 a 8 anos) e convoque 23.
 
 ## Compartilhar
 

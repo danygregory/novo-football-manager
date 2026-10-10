@@ -3,7 +3,10 @@
  * Uso: npm run make-assets   (os PNGs ficam em public/ e são versionados)
  */
 import { chromium } from '@playwright/test';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
+
+// o número da pré-visualização vem do mundo gerado (não fica fixo no script)
+const ERAS = (JSON.parse(readFileSync(new URL('../data/world.json', import.meta.url), 'utf8')) as { nations: unknown[] }).nations.length;
 
 const BASE = `font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; margin:0; color:#e8f1ea;`;
 
@@ -15,7 +18,7 @@ const og = `<body style="${BASE} width:1200px;height:630px;background:linear-gra
     <div style="font-size:78px;font-weight:800;line-height:1.05;margin-top:26px;max-width:800px">A Hungria de 1954 contra o Brasil de hoje.</div>
     <div style="font-size:34px;color:#94ad9d;margin-top:28px;max-width:760px">Seleções históricas de verdade, jogadores fictícios. Monte, escale e decida a partida.</div>
     <div style="display:flex;gap:16px;margin-top:44px;font-size:26px;font-weight:600">
-      <span style="border:2px solid #2a4636;border-radius:999px;padding:8px 22px">841 seleções-era</span>
+      <span style="border:2px solid #2a4636;border-radius:999px;padding:8px 22px">${ERAS} seleções-era</span>
       <span style="border:2px solid #2a4636;border-radius:999px;padding:8px 22px">cenários de uma partida</span>
       <span style="border:2px solid #2a4636;border-radius:999px;padding:8px 22px">desafio do dia</span>
     </div>
