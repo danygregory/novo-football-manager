@@ -45,3 +45,26 @@ test('draft: a tabela mostra GOL, que é o destaque dos goleiros (nos demais fic
   expect(muted, 'o GOL de quem não é goleiro fica esmaecido').not.toBe(normal);
   expect(errors).toEqual([]);
 });
+
+// Regressão: no 3-5-2 a linha de 5 meias (WB, DM, CM, AM, WB) e no 5-4-1 a de 5 defensores quebravam em duas linhas, porque 5 vagas de 74 px
+// (402 px) não cabiam nos 370 px do campo e a linha tinha flex-wrap. A quinta vaga aparecia sozinha abaixo, como se fosse outra linha do time.
+const LINHAS: Record<string, number[]> = { '4-4-2': [2, 4, 4, 1], '4-3-3': [3, 3, 4, 1], '3-5-2': [2, 5, 3, 1], '5-4-1': [1, 4, 5, 1] }; // do ataque ao gol
+
+for (const [formacao, vagas] of Object.entries(LINHAS)) {
+  test(`draft ${formacao}: cada linha do campo fica numa linha só (${vagas.join('-')})`, async ({ page }) => {
+    await page.goto('/');
+    await page.getByText('Mais modos', { exact: true }).click();
+    await btn(page, /Monte a sua/).click();
+    await page.getByRole('button', { name: formacao, exact: true }).click();
+    await btn(page, 'Começar o draft').click();
+    await expect(page.locator('.dpitch')).toBeVisible();
+    const linhas = await page.locator('.dpitch .drow').evaluateAll((rows) =>
+      rows.map((r) => ({ vagas: r.children.length, alturas: new Set([...r.children].map((c) => Math.round((c as HTMLElement).offsetTop))).size, largura: Math.round(r.scrollWidth - (r as HTMLElement).clientWidth) })),
+    );
+    expect(linhas.map((l) => l.vagas), 'vagas por linha').toEqual(vagas);
+    for (const [i, l] of linhas.entries()) {
+      expect(l.alturas, `linha ${i + 1} (${l.vagas} vagas) quebrou em mais de uma linha`).toBe(1);
+      expect(l.largura, `linha ${i + 1} passa da largura do campo`).toBeLessThanOrEqual(0);
+    }
+  });
+}

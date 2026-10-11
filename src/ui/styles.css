@@ -201,8 +201,10 @@ input.text { background: var(--panel-2); color: var(--text); border: 1px solid v
 .draft-grid { display: grid; grid-template-columns: 420px minmax(0, 1fr); gap: 14px; align-items: start; }
 @media (max-width: 1000px) { .draft-grid { grid-template-columns: 1fr; } }
 .dpitch { background: #2f7a45; background-image: linear-gradient(0deg, rgba(255,255,255,.05) 50%, transparent 50%); background-size: 100% 80px; border-radius: 10px; padding: 12px 8px; display: grid; gap: 14px; }
-.drow { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
-.dslot { width: 74px; min-height: 66px; display: grid; gap: 2px; justify-items: center; align-content: center; padding: .3em; border-radius: 10px; border: 2px dashed rgba(255,255,255,.4); background: rgba(0,0,0,.25); font-size: .78rem; line-height: 1.1; }
+.drow { display: flex; justify-content: center; gap: 6px; }
+/* as vagas dividem a largura da linha (até 74 px) em vez de quebrar: 5 vagas de 74 px não cabiam nos 370 px do campo (3-5-2 e 5-4-1) */
+.dslot { flex: 1 1 0; min-width: 0; max-width: 74px; min-height: 66px; display: grid; gap: 2px; justify-items: center; align-content: center; padding: .3em; border-radius: 10px; border: 2px dashed rgba(255,255,255,.4); background: rgba(0,0,0,.25); font-size: .78rem; line-height: 1.1; }
+.dslot b, .dslot .muted { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dslot.filled { border-style: solid; border-color: rgba(255,255,255,.6); background: rgba(0,0,0,.5); }
 .dslot.can { border-color: var(--accent); background: rgba(242,199,68,.25); animation: blink-soft 1.2s ease-in-out infinite; }
 @keyframes blink-soft { 50% { background: rgba(242,199,68,.45); } }
