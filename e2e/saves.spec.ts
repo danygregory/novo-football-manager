@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import { btn, startReadyCup, watchErrors } from './helpers';
 
@@ -70,6 +71,12 @@ test('exportar e importar: o progresso volta em um navegador limpo; arquivo inv�
   await expect(fresh.getByText(/não é um save/)).toBeVisible();
   await fresh.getByLabel('Arquivo de save').setInputFiles({ name: 'y.json', mimeType: 'application/json', buffer: Buffer.from('nao é json') });
   await expect(fresh.getByText(/JSON válido/)).toBeVisible();
+  // válido pelo esquema, mas incoerente (semifinal sem grupos nem resultados): recusado na importação, o save atual continua intacto
+  const bad = JSON.parse(readFileSync(path, 'utf8'));
+  Object.assign(bad.data.run.tournament, { stage: 'SF', results: [], groups: [], userMatches: [] });
+  await fresh.getByLabel('Arquivo de save').setInputFiles({ name: 'z.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(bad)) });
+  await expect(fresh.getByText(/Dados inválidos em "run"/)).toBeVisible();
+  await expect(fresh.getByText(/Continuar: Brasil/)).toBeVisible();
   expect(errors).toEqual([]);
   expect(fErrors).toEqual([]);
   await ctx.close();

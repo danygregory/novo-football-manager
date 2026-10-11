@@ -3,7 +3,7 @@ import worldJson from '../../data/world.json';
 import { finalizeDraft, greedyDraft } from '../data/draft';
 import { squadOf } from '../data/squads';
 import { autoLineup, autoSquad23, tacticsForStyle } from '../engine/lineup';
-import { MatchSimulator } from '../engine/match';
+import { MatchSimulator, simulateMatch } from '../engine/match';
 import { createScenario, SCENARIOS } from '../engine/scenarios';
 import { buildSetup, createTournament, fixtureSeed, playRound, startRecord, userFixture, withCustom, type Tournament } from '../engine/tournament';
 import type { World } from '../engine/types';
@@ -95,5 +95,68 @@ describe('Copa em andamento no save', () => {
     expect(repo2.load('run')?.tournament.seed).toBe(r.tournament.seed);
     expect(parseSave(text, (id) => id !== 'BRA-1970').ok).toBe(false);
     expect(runIds(r).length).toBeGreaterThan(30);
+  });
+});
+
+// Regressão do QA (ISSUE-008): um save válido pelo esquema, mas incoerente (Copa nas semifinais sem grupos nem resultados), era aceito no
+// import, derrubava a tela ao agir sobre ele e continuava salvo.
+describe('coerência da Copa salva', () => {
+  /** Uma Copa real, da 1ª rodada até o fim, com todas as fases pelo caminho. */
+  function everyStage(): Tournament[] {
+    const nation = world.nations.find((n) => n.id === 'BRA-1970')!;
+    const squad = autoSquad23(squadOf(nation));
+    let t = createTournament(world, nation.id, squad.map((p) => p.id), autoLineup(nation.id, squad, tacticsForStyle(nation.playStyle)), 31);
+    const out = [t];
+    while (t.stage !== 'DONE') {
+      const f = userFixture(t, world);
+      const report = f
+        ? simulateMatch([buildSetup(world, t, f.home, f.home === t.userNationId), buildSetup(world, t, f.away, f.away === t.userNationId)], { seed: fixtureSeed(t, f), knockout: !t.stage.startsWith('G'), detail: 'summary' })
+        : undefined;
+      t = playRound(world, t, report).tournament;
+      out.push(t);
+    }
+    return out;
+  }
+  const stages = everyStage();
+  const mutate = (t: Tournament, fn: (c: any) => void) => {
+    const c = JSON.parse(JSON.stringify(wrap(t)));
+    fn(c.tournament);
+    return run(c);
+  };
+
+  it('uma Copa real é aceita em todas as fases (G1 a DONE)', () => {
+    expect(stages.map((t) => t.stage)).toEqual(['G1', 'G2', 'G3', 'R16', 'QF', 'SF', 'F', 'DONE']);
+    for (const t of stages) expect(viaJson(wrap(t)), `fase ${t.stage}`).toBeDefined();
+  });
+
+  it('um cenário (partida única) é aceito antes e depois de jogar', () => {
+    const sc = SCENARIOS[0]!;
+    const nation = world.nations.find((n) => n.id === sc.user)!;
+    const squad = autoSquad23(squadOf(nation));
+    const t = createScenario(world, sc, squad.map((p) => p.id), autoLineup(nation.id, squad, tacticsForStyle(nation.playStyle)));
+    expect(viaJson(wrap(t, { mode: 'scenario', scenarioId: sc.id }))).toBeDefined();
+    const f = userFixture(t, world)!;
+    const report = simulateMatch([buildSetup(world, t, f.home, f.home === t.userNationId), buildSetup(world, t, f.away, f.away === t.userNationId)], { seed: fixtureSeed(t, f), knockout: true, detail: 'summary' });
+    const done = playRound(world, t, report).tournament;
+    expect(done.stage).toBe('DONE');
+    expect(viaJson(wrap(done, { mode: 'scenario', scenarioId: sc.id }))).toBeDefined();
+  });
+
+  it('é recusada a Copa que não bate com a fase: sem resultados, sem grupos, com resultados a mais ou a menos', () => {
+    const sf = stages.find((t) => t.stage === 'SF')!;
+    expect(mutate(sf, (t) => (t.results = []))).toBeUndefined();
+    expect(mutate(sf, (t) => (t.groups = []))).toBeUndefined();
+    expect(mutate(sf, (t) => t.results.pop())).toBeUndefined();
+    expect(mutate(sf, (t) => t.results.push({ ...t.results[0], id: 'EXTRA' }))).toBeUndefined();
+    expect(mutate(stages[0]!, (t) => (t.results = sf.results))).toBeUndefined(); // resultados de uma Copa adiantada numa Copa no início
+  });
+
+  it('é recusada a Copa cujos participantes não fecham: só 5, repetidos, fora dos grupos ou sem o time do usuário', () => {
+    const t = stages.find((x) => x.stage === 'R16')!;
+    expect(mutate(t, (c) => (c.participants = c.participants.slice(0, 5)))).toBeUndefined();
+    expect(mutate(t, (c) => (c.participants[1] = c.participants[0]))).toBeUndefined();
+    expect(mutate(t, (c) => (c.groups[0][0] = 'ZZZ-1999'))).toBeUndefined();
+    expect(mutate(t, (c) => (c.userNationId = 'ARG-1970'))).toBeUndefined();
+    expect(mutate(t, (c) => delete c.squads[c.userNationId])).toBeUndefined();
   });
 });

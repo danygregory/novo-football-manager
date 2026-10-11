@@ -141,6 +141,25 @@ function matchRecord(v: unknown): MatchRecord | undefined {
   return r;
 }
 
+/** Resultados já jogados quando cada fase começa numa Copa de 32 seleções: 8 grupos x 6 jogos = 48 ao fim dos grupos, depois 8, 4, 2 e 1 jogo de mata-mata. */
+const RESULTS_AT_STAGE: Record<Stage, number> = { G1: 0, G2: 16, G3: 32, R16: 48, QF: 56, SF: 60, F: 62, DONE: 63 };
+
+/**
+ * O esquema só confere tipos e limites; isto confere que a Copa faz sentido (era possível importar uma Copa nas semifinais sem grupos nem
+ * resultados, que derrubava a tela ao jogar e continuava salva): 8 grupos de 4, 32 participantes com elenco, o usuário entre eles, e a
+ * quantidade de resultados que a fase pede. Cenário (partida única): 2 participantes, sem grupos.
+ */
+function coherent(t: Tournament): boolean {
+  if (!t.participants.includes(t.userNationId)) return false;
+  if (!t.participants.every((id) => t.squads[id] !== undefined)) return false;
+  if (t.scenario) return t.participants.length === 2 && t.participants.includes(t.scenario.opponent) && t.groups.length === 0 && (t.stage === 'F' ? t.results.length === 0 : t.stage === 'DONE' && t.results.length === 1);
+  const inGroups = t.groups.flat();
+  if (t.groups.length !== 8 || t.groups.some((g) => g.length !== 4)) return false;
+  if (t.participants.length !== 32 || new Set(t.participants).size !== 32 || new Set(inGroups).size !== 32) return false;
+  if (!inGroups.every((id) => t.participants.includes(id))) return false;
+  return t.results.length === RESULTS_AT_STAGE[t.stage];
+}
+
 function tournament(v: unknown): Tournament | undefined {
   if (!isObj(v) || !Array.isArray(v.groups) || v.groups.length > 8 || !Array.isArray(v.results) || v.results.length > 100 || !Array.isArray(v.userMatches) || v.userMatches.length > 8 || !isObj(v.stats)) return undefined;
   const groups = v.groups.map((g) => idList(g, 4));
@@ -169,7 +188,7 @@ function tournament(v: unknown): Tournament | undefined {
     if (!sc) return undefined;
     t.scenario = sc;
   }
-  return t;
+  return coherent(t) ? t : undefined;
 }
 
 export function run(v: unknown): Run | undefined {
