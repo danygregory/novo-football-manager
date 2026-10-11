@@ -1,3 +1,4 @@
+import { Term } from '../components/Term';
 import { useMemo, useState } from 'react';
 import type { Continent, Decade, NationEra } from '../../engine/types';
 import { squadOf } from '../../data/squads';
@@ -55,7 +56,7 @@ export function PickNation({ initial, onPick, onBack }: { initial?: string; onPi
       <div className="row between" style={{ marginBottom: 12 }}>
         <div>
           <h2>Escolha sua seleção</h2>
-          <div className="muted">{world.nations.length} seleções-era de 1930 a 2020: décadas e gerações (picos de 4 a 8 anos). A força é o Elo médio do período, calculado de resultados reais; "na época" compara com as outras seleções da mesma década.</div>
+          <div className="muted">{world.nations.length} seleções-era de 1930 a 2020: décadas e gerações (picos de 4 a 8 anos). A força é o <Term term="Elo" /> médio do período, calculado de resultados reais; "na época" compara com as outras seleções da mesma década.</div>
         </div>
         <div className="row">
           <button className="ghost" onClick={onBack}>Voltar</button>
@@ -94,7 +95,7 @@ export function PickNation({ initial, onPick, onBack }: { initial?: string; onPi
       <div className="panel pick-list" style={{ padding: 0 }}>
         <table className="pick-table">
           <thead>
-            <tr><th>Seleção</th><th>Período</th><th>Continente</th><th>Estilo</th><th className="num">Elo</th><th style={{ width: 150 }}>Na época</th></tr>
+            <tr><th>Seleção</th><th>Período</th><th>Continente</th><th>Estilo</th><th className="num"><Term term="Elo" /></th><th style={{ width: 150 }}>Na época</th></tr>
           </thead>
           <tbody>
             {rows.map((n: NationEra) => (

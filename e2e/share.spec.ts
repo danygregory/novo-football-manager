@@ -38,8 +38,8 @@ test('fim da Copa: cartão em imagem, texto com link e o link reabre a mesma Cop
 test('link de desafio inválido é ignorado sem erro', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto('/#c=' + encodeURIComponent('k=cup&n=../../etc&u=all&s=1'));
-  await expect(btn(page, /Seleção pronta/)).toBeVisible();
+  await expect(btn(page, /Copa completa/)).toBeVisible();
   await page.goto('/#c=%E0%A4%A');
-  await expect(btn(page, /Seleção pronta/)).toBeVisible();
+  await expect(btn(page, /Copa completa/)).toBeVisible();
   expect(errors).toEqual([]);
 });

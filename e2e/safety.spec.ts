@@ -10,7 +10,7 @@ test('save adulterado no localStorage não derruba o jogo', async ({ page }) => 
     localStorage.setItem('novo-fm-settings', 'nao e json');
   });
   await page.goto('/');
-  await expect(btn(page, /Seleção pronta/)).toBeVisible();
+  await expect(btn(page, /Copa completa/)).toBeVisible();
   await expect(btn(page, /Carreira de técnico(?! \(em andamento)/)).toBeVisible(); // sem "(em andamento)": o save inválido foi ignorado
   await btn(page, /Conquistas e ranking/).click();
   await expect(page.getByRole('heading').first()).toBeVisible();

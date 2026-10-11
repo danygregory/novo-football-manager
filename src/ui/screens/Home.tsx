@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { ModeCards, type ModeHandlers } from './ModeSelect';
+import { MainModes, MoreModes, type ModeHandlers } from './ModeSelect';
 
 export interface ResumeInfo {
   label: string;
@@ -27,7 +27,7 @@ export function Home({ modes, quick, resume, onResume, onDiscard, onExport, onIm
         NOVO <span style={{ color: 'var(--accent)' }}>Football Manager</span>
       </h1>
       <p>
-        Escolha uma seleção de uma era histórica, convoque, defina a tática e dispute uma Copa de 32 seleções. A força vem de resultados reais; os jogadores são todos fictícios.
+        Seleções de todas as épocas, de 1930 até hoje. Escolha o time, defina a tática e decida a partida. A força vem de resultados reais; os jogadores são fictícios.
       </p>
       {quick && (
         <div className="panel quick" style={{ maxWidth: 900, margin: '0 auto 14px', textAlign: 'left' }}>
@@ -37,7 +37,7 @@ export function Home({ modes, quick, resume, onResume, onDiscard, onExport, onIm
               <b style={{ fontSize: '1.2rem' }}>{quick.title}</b>
               <div className="muted">{quick.blurb}</div>
             </div>
-            <button className="primary big" onClick={quick.onPlay}>Jogar agora</button>
+            <button className="primary big" onClick={quick.onPlay}>Jogar agora <span className="dur-inline">· 5 min</span></button>
           </div>
         </div>
       )}
@@ -55,9 +55,10 @@ export function Home({ modes, quick, resume, onResume, onDiscard, onExport, onIm
           </div>
         </div>
       )}
-      <h3 style={{ maxWidth: 900, margin: '10px auto 8px', textAlign: 'left' }}>Ou escolha um modo</h3>
+      <h3 style={{ maxWidth: 900, margin: '10px auto 8px', textAlign: 'left' }}>Ou escolha como jogar</h3>
       <div style={{ textAlign: 'left', maxWidth: 900, margin: '0 auto 18px' }}>
-        <ModeCards {...modes} />
+        <MainModes {...modes} />
+        <MoreModes {...modes} />
       </div>
       <div className="row">
         <button className="ghost" onClick={onAchievements}>

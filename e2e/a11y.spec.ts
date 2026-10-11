@@ -11,7 +11,7 @@ async function violations(page: Page) {
 test('telas principais sem violações sérias de acessibilidade', async ({ page }) => {
   await page.goto('/');
   expect(await violations(page), 'home').toEqual([]);
-  await btn(page, /Seleção pronta/).click();
+  await btn(page, /Copa completa/).click();
   expect(await violations(page), 'escolha da seleção').toEqual([]);
   await page.getByLabel('Buscar').fill('Brasil');
   await page.locator('.pick-list tbody tr.clickable').first().click();
@@ -24,7 +24,7 @@ test('telas principais sem violações sérias de acessibilidade', async ({ page
 
 test('escolha da seleção e convocação funcionam só com o teclado', async ({ page }) => {
   await page.goto('/');
-  await btn(page, /Seleção pronta/).focus();
+  await btn(page, /Copa completa/).focus();
   await page.keyboard.press('Enter');
   await page.getByLabel('Buscar').fill('Brasil');
   const row = page.locator('.pick-list tbody tr.clickable').first();

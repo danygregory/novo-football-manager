@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Term } from '../components/Term';
 import { FORMATIONS } from '../../engine/formations';
 import type { Decision, LiveState, MatchCommand, Shout, TalkTone } from '../../engine/match';
 import { SHOUT_MINUTES } from '../../engine/match';
@@ -418,7 +419,7 @@ export function LivePanel({ state, userSide, colors }: { state: LiveState; userS
         </div>
       </div>
       <div className="lp-row">
-        <div className="row between muted"><span>xG acumulado</span><span><b>{xgMine.toFixed(2)}</b> x {xgTheirs.toFixed(2)}</span></div>
+        <div className="row between muted"><span><Term term="xG">xG</Term> acumulado</span><span><b>{xgMine.toFixed(2)}</b> x {xgTheirs.toFixed(2)}</span></div>
         <div className="momentum thin">
           <i style={{ width: `${(xgMine / xgTotal) * 100}%`, background: colors[userSide] }} />
           <i style={{ width: `${(xgTheirs / xgTotal) * 100}%`, background: colors[userSide === 0 ? 1 : 0] }} />

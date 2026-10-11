@@ -15,7 +15,7 @@ export const btn = (page: Page, name: string | RegExp) => page.getByRole('button
 /** Seleção pronta: escolhe a seleção (pela busca), convoca, escala e sorteia a Copa. */
 export async function startReadyCup(page: Page, query = 'Brasil') {
   await page.goto('/');
-  await btn(page, /Seleção pronta/).click();
+  await btn(page, /Copa completa/).click();
   await page.getByLabel('Buscar').fill(query);
   await page.locator('.pick-list tbody tr.clickable').first().click();
   await btn(page, 'Escolher').click();

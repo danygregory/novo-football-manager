@@ -1,6 +1,7 @@
 import { SPEEDS, type Speed } from '../speed';
 import type { Fixture, Tournament } from '../../engine/tournament';
 import { Bar, NationName, STYLE_LABEL, WhoBadge } from '../components/common';
+import { Term } from '../components/Term';
 import { kitColors, stageTitle } from '../teams';
 import { nationsById } from '../world';
 
@@ -31,7 +32,7 @@ export function MatchIntro({ t, fixture, busy, onInstant, onWatch, lastSpeed, on
         {[home, away].map((n, i) => (
           <div key={n.id} className="panel">
             <h3><NationName nation={n} shirt={shirts[i]} /><WhoBadge mine={n.id === t.userNationId} /></h3>
-            <div className="row between muted"><span>Força (Elo)</span><span>{Math.round(n.elo)}</span></div>
+            <div className="row between muted"><span>Força (<Term term="Elo" />)</span><span>{Math.round(n.elo)}</span></div>
             <Bar value={n.elo - 1450} max={800} />
             <p className="muted" style={{ marginBottom: 0 }}>Estilo: {STYLE_LABEL[n.playStyle]}</p>
           </div>

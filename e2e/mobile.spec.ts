@@ -34,7 +34,7 @@ test('telas principais cabem na largura do celular', async ({ page }) => {
 
 test('Copa no celular: seleção, grupos e fim', async ({ page }) => {
   await page.goto('/');
-  await btn(page, /Seleção pronta/).click();
+  await btn(page, /Copa completa/).click();
   await noSideScroll(page, 'escolha da seleção');
   await page.getByLabel('Buscar').fill('Brasil');
   await page.locator('.pick-list tbody tr.clickable').first().tap();
