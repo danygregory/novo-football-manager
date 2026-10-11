@@ -210,7 +210,7 @@ describe('gerações das melhores seleções do mundo', () => {
 describe('elencos', () => {
   it('são gerados sob demanda e sempre iguais (seed fixa por seleção-era)', () => {
     for (const n of [committed.nations[0]!, committed.nations[200]!, committed.nations[500]!]) {
-      const fresh = generateSquad({ nationId: n.id, culture: n.culture as never, decade: n.decade, elo: n.elo, playStyle: n.playStyle });
+      const fresh = generateSquad({ nationId: n.id, culture: n.culture as never, decade: n.decade, elo: n.elo, playStyle: n.playStyle, topShare: n.topShare });
       expect(squadOf(n)).toEqual(fresh);
       expect(squadOf(n)).toBe(squadOf(n));
     }

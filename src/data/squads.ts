@@ -12,7 +12,7 @@ export function squadOf(n: NationEra): Player[] {
   if (n.customSquad) return renamed(n.id, n.customSquad);
   let squad = cache.get(n.id);
   if (!squad) {
-    squad = generateSquad({ nationId: n.id, culture: n.culture as Culture, decade: n.decade, elo: n.elo, playStyle: n.playStyle });
+    squad = generateSquad({ nationId: n.id, culture: n.culture as Culture, decade: n.decade, elo: n.elo, playStyle: n.playStyle, topShare: n.topShare });
     cache.set(n.id, squad);
   }
   return renamed(n.id, squad);

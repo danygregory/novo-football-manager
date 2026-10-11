@@ -118,6 +118,41 @@ export interface SquadInput {
   /** Elo médio da era; define o nível dos jogadores. */
   elo: number;
   playStyle: PlayStyle;
+  /** Parte dos gols do artilheiro principal na era (goalscorers.csv); ausente ou neutra = elenco típico. Ver `applyScoringProfile`. */
+  topShare?: number;
+}
+
+/** Parte do artilheiro principal de uma seleção típica (mediana das seleções-era com medida) e quanto vale um desvio completo. */
+export const NEUTRAL_TOP_SHARE = 0.19;
+const TOP_SHARE_SPREAD = 0.1;
+
+/**
+ * Perfil de artilheiro: seleções de um craque artilheiro (Noruega 2020, Portugal 1960, Croácia 1990) dependem de um atacante, e as de
+ * gols espalhados (Brasil 1970) têm vários. Só mexe na finalização dos 4 melhores atacantes, depois de ids e ordem fixados: quem é cada
+ * jogador (id, nome, posição, idade, estilo) não muda, e o craque do elenco continua sendo o melhor. Concentrada: o atacante principal
+ * ganha até 7 de finalização (limitado a não passar o craque) e os 3 seguintes perdem até 5. Espalhada: os 3 seguintes ganham até 4 (profundidade ofensiva), e o principal fica como está.
+ */
+function applyScoringProfile(players: Player[], topShare: number | undefined): void {
+  if (topShare === undefined) return;
+  const dep = clamp((topShare - NEUTRAL_TOP_SHARE) / TOP_SHARE_SPREAD, -1, 1);
+  const attackers = players.filter((p) => p.position === 'FWD').sort((a, b) => overall(b) - overall(a)).slice(0, 4);
+  const star = players.find((p) => p.star);
+  const ceiling = star ? overall(star) : Infinity;
+  const raise = (p: Player, by: number) => {
+    for (let i = 0; i < by && p.attrs.finalizacao < 99; i++) {
+      p.attrs.finalizacao++;
+      if (!p.star && overall(p) > ceiling) {
+        p.attrs.finalizacao--; // o craque continua sendo o melhor do elenco
+        break;
+      }
+    }
+  };
+  if (dep > 0) {
+    if (attackers[0]) raise(attackers[0], Math.round(7 * dep));
+    for (const p of attackers.slice(1)) p.attrs.finalizacao = Math.max(1, p.attrs.finalizacao - Math.round(5 * dep));
+  } else if (dep < 0) {
+    for (const p of attackers.slice(1)) raise(p, Math.round(-4 * dep));
+  }
 }
 
 /** Nível médio do elenco a partir do Elo (Elo 1500 -> 50; 2100 -> 77). */
@@ -180,5 +215,7 @@ export function generateSquad(input: SquadInput): Player[] {
   const order: Position[] = ['GK', 'DEF', 'MID', 'FWD'];
   players.sort((a, b) => order.indexOf(a.position) - order.indexOf(b.position) || overall(b) - overall(a));
   // reatribui ids na ordem final para que sejam estáveis e legíveis.
-  return players.map((p, i) => ({ ...p, id: `${input.nationId}-${String(i + 1).padStart(2, '0')}` }));
+  const out = players.map((p, i) => ({ ...p, id: `${input.nationId}-${String(i + 1).padStart(2, '0')}` }));
+  applyScoringProfile(out, input.topShare); // depois dos ids: a identidade de cada jogador não muda
+  return out;
 }
