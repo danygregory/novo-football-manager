@@ -45,14 +45,15 @@ test('ISSUE-002: convocação inválida mostra o motivo em texto (e some quando 
 test.describe('celular', () => {
   test.use({ viewport: { width: 375, height: 812 } });
 
-  test('ISSUE-003: o título da campanha fica numa linha própria abaixo da marca, sem rolagem lateral', async ({ page }) => {
+  test('ISSUE-003: o título da campanha fica numa linha própria abaixo da marca, na largura toda, sem rolagem lateral', async ({ page }) => {
     await startChallengeCup(page);
     const m = await page.evaluate(() => {
       const r = (s: string) => document.querySelector(s)!.getBoundingClientRect();
-      return { brandBottom: r('.topbar .brand').bottom, crumbsTop: r('.crumbs').top, crumbsH: r('.crumbs').height, sw: document.documentElement.scrollWidth, iw: window.innerWidth };
+      return { brandBottom: r('.topbar .brand').bottom, crumbsTop: r('.crumbs').top, crumbsW: r('.crumbs').width, topbarW: r('.topbar').width, sw: document.documentElement.scrollWidth, iw: window.innerWidth };
     });
     expect(m.crumbsTop, 'o título começa abaixo da marca').toBeGreaterThanOrEqual(m.brandBottom - 1);
-    expect(m.crumbsH, 'o título cabe em uma linha').toBeLessThan(30);
+    // antes ele ficava espremido ao lado da marca (uns 130 px) e quebrava em 4 linhas; a fonte muda quantas linhas ele ocupa, a largura não
+    expect(m.crumbsW, 'o título usa a largura toda do cabeçalho').toBeGreaterThanOrEqual(m.topbarW * 0.9);
     expect(m.sw).toBeLessThanOrEqual(m.iw + 1);
   });
 });
