@@ -133,7 +133,7 @@ export function DraftBoard({ state, onChange, onFinish, onBack }: { state: Draft
                 <table>
                   <thead>
                     <tr>
-                      <th>Pos</th><th>Nome</th><th className="num">Idade</th><th>Estilo</th>
+                      <th>Pos</th><th>Nome</th><th className="num">Idade</th>
                       {!memory && ATTR_LABEL.map(([, l]) => <th key={l} className="num">{l}</th>)}
                       {!memory && <th className="num">GER</th>}
                     </tr>
@@ -142,9 +142,11 @@ export function DraftBoard({ state, onChange, onFinish, onBack }: { state: Draft
                     {rows.map((p: Player) => (
                       <tr key={p.id} className={`clickable ${sel === p.id ? 'called' : ''} ${taken.has(p.id) ? 'taken' : ''}`} {...rowActivate(() => !taken.has(p.id) && setSel(p.id), sel === p.id)}>
                         <td><PosPill p={p} /></td>
-                        <td>{p.name}</td>
+                        <td>
+                          {p.name}
+                          <div className="muted sub">{p.style}</div>
+                        </td>
                         <td className="num">{p.age}</td>
-                        <td className="muted">{p.style}</td>
                         {!memory && ATTR_LABEL.map(([k]) => <td key={k} className="num" style={attrStyle(k, p)}>{p.attrs[k]}</td>)}
                         {!memory && <td className="num"><b>{Math.round(overall(p))}</b></td>}
                       </tr>

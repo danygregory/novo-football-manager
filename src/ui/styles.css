@@ -208,9 +208,9 @@ input.text { background: var(--panel-2); color: var(--text); border: 1px solid v
 @keyframes blink-soft { 50% { background: rgba(242,199,68,.45); } }
 .draft-list { max-height: 52vh; overflow: auto; }
 .draft-list thead th { position: sticky; top: 0; background: var(--panel); }
-/* a tabela tem 12 colunas (com GOL): células mais justas e o estilo do jogador quebra linha, para GOL e GER caberem sem rolagem lateral */
+/* 11 colunas com GOL: o estilo do jogador vai embaixo do nome (e não numa coluna própria), para a tabela caber com folga em qualquer fonte */
 .draft-list th, .draft-list td { padding: .3em .4em; }
-.draft-list td:nth-child(4) { white-space: normal; min-width: 92px; line-height: 1.25; }
+.draft-list .sub { font-size: .76rem; line-height: 1.2; }
 tr.taken td { opacity: .35; text-decoration: line-through; }
 .reserves { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 @media (prefers-reduced-motion: reduce) { .dslot.can { animation: none; } }
