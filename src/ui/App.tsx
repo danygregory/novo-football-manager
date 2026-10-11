@@ -4,7 +4,7 @@ import { STAGE_LABEL, userFixture, type Cut, type Fixture, type MatchRecord, typ
 import { finalizeDraft, startDraft, type DraftConfig, type DraftState } from '../data/draft';
 import { squadOf } from '../data/squads';
 import type { Lineup, MatchReport } from '../engine/types';
-import { applyCup, careerCut, newCareer, reputationDelta, takeTeam, type Career, type CupEvaluation } from '../engine/career';
+import { applyCup, careerCut, isCareerStarted, newCareer, reputationDelta, takeTeam, type Career, type CupEvaluation } from '../engine/career';
 import { Kit } from './components/common';
 import { ShareBar } from './components/ShareBar';
 import { ChallengeIntro } from './screens/ChallengeIntro';
@@ -473,7 +473,7 @@ function MainApp() {
           onAchievements={() => go({ screen: 'achievements' })}
           modes={{
             onCareer: openCareer,
-            hasCareer: !!repo.load('career')?.entries,
+            hasCareer: isCareerStarted(repo.load('career')),
             onDaily: () => {
               registerCustom(undefined);
               go({ mode: 'daily', dailyDate: todayIso(), screen: 'dailyIntro' });

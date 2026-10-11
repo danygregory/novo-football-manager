@@ -3,7 +3,8 @@ import { useMemo, useState } from 'react';
 import type { Continent, Decade, NationEra } from '../../engine/types';
 import { squadOf } from '../../data/squads';
 import { useSummary } from '../summaries';
-import { eraSpan, world } from '../world';
+import { CLASSICS } from '../classics';
+import { eraSpan, nationLabel, world } from '../world';
 import { Bar, Kit, STYLE_LABEL, rowActivate } from '../components/common';
 
 const CONTINENT_LABEL: Record<Continent, string> = { EU: 'Europa', SA: 'América do Sul', NA: 'América do Norte/Central', AF: 'África', AS: 'Ásia', OC: 'Oceania' };
@@ -60,8 +61,22 @@ export function PickNation({ initial, onPick, onBack }: { initial?: string; onPi
         </div>
         <div className="row">
           <button className="ghost" onClick={onBack}>Voltar</button>
-          <button className="primary" disabled={!sel} onClick={() => sel && onPick(sel)}>Escolher</button>
+          <button className="primary" disabled={!sel} onClick={() => sel && onPick(sel)}>Escolher{chosen ? ` ${nationLabel(chosen)}` : ''}</button>
         </div>
+      </div>
+
+      <div className="classics" role="group" aria-label="Clássicos">
+        <span className="lbl">Clássicos:</span>
+        {CLASSICS.map((id) => {
+          const n = world.nations.find((x) => x.id === id);
+          return n ? (
+            <button key={id} className={sel === id ? 'sel' : ''} aria-pressed={sel === id} onClick={() => setSel(id)}>
+              <Kit nation={n} />
+              {nationLabel(n)}
+            </button>
+          ) : null;
+        })}
+        {!sel && <span className="muted hint">Clique em uma seleção da lista ou em um clássico para escolher.</span>}
       </div>
 
       <div className="filters panel">

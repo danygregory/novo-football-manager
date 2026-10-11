@@ -9,6 +9,7 @@ import {
   careerStartOptions,
   clampRep,
   evaluateCup,
+  isCareerStarted,
   makeOffers,
   newCareer,
   offerCount,
@@ -177,5 +178,17 @@ describe('carreira: histórico', () => {
     expect(sum.titles).toBe(career.entries.filter((e) => e.champion).length);
     expect(sum.best).toBeDefined();
     expect(sum.teams.reduce((a, t) => a + t.cups, 0)).toBe(4);
+  });
+});
+
+describe('carreira começada (isCareerStarted)', () => {
+  it('só conta como em andamento depois de escolher a seleção ou de jogar uma Copa', () => {
+    expect(isCareerStarted(undefined)).toBe(false);
+    const fresh = newCareer(world, 42); // só sorteou as 3 opções: o jogador ainda não escolheu nada
+    expect(fresh.startOptions?.length).toBeGreaterThan(0);
+    expect(isCareerStarted(fresh)).toBe(false);
+    const picked = takeTeam(fresh, fresh.startOptions![0]!);
+    expect(isCareerStarted(picked)).toBe(true);
+    expect(isCareerStarted({ ...fresh, nationId: undefined, entries: [{ n: 1 } as never] })).toBe(true);
   });
 });

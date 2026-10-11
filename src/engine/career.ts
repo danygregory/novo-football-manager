@@ -158,6 +158,11 @@ export interface Career {
   offers?: string[];
 }
 
+/** A carreira só "começou" depois que o jogador escolheu a seleção (ou já jogou uma Copa): olhar as 3 opções sorteadas não conta. */
+export function isCareerStarted(c: Career | undefined): boolean {
+  return !!c && (c.nationId !== undefined || c.entries.length > 0);
+}
+
 export function newCareer(world: World, seed: number): Career {
   return { id: `career-${seed}`, seed, rep: START_REPUTATION, entries: [], startOptions: careerStartOptions(world, seed) };
 }
