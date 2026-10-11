@@ -124,6 +124,8 @@ export interface Settings {
   speed?: 2 | 4;
   /** A dica da primeira partida já foi vista. */
   tipSeen?: boolean;
+  /** O convite para a Copa completa (depois da primeira partida) já foi respondido. */
+  cupPromptSeen?: boolean;
 }
 export function settings(v: unknown): Settings | undefined {
   if (!isObj(v)) return undefined;
@@ -131,6 +133,7 @@ export function settings(v: unknown): Settings | undefined {
   if (typeof v.reduceMotion === 'boolean') out.reduceMotion = v.reduceMotion;
   if (v.speed === 2 || v.speed === 4) out.speed = v.speed;
   if (typeof v.tipSeen === 'boolean') out.tipSeen = v.tipSeen;
+  if (typeof v.cupPromptSeen === 'boolean') out.cupPromptSeen = v.cupPromptSeen;
   return out;
 }
 

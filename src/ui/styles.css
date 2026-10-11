@@ -301,3 +301,6 @@ button.big { font-size: 1.1rem; padding: .7em 1.6em; }
 .classics button.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
 .classics .hint { font-size: .85rem; margin-left: 4px; }
 
+/* convite para a Copa completa, depois da primeira partida */
+.invite { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; max-width: 900px; margin: 0 auto 14px; border-color: var(--accent); text-align: left; }
+

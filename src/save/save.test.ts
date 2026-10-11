@@ -102,3 +102,14 @@ describe('versão do motor', () => {
     expect(() => replayRecord(world, rec)).not.toThrow();
   });
 });
+
+describe('configurações', () => {
+  it('o convite da Copa completa (cupPromptSeen) é guardado só quando é booleano', () => {
+    const repo = new SaveRepository(new MemoryTextStore());
+    repo.save('settings', { cupPromptSeen: true, tipSeen: true } as never);
+    expect(repo.load('settings')).toEqual({ cupPromptSeen: true, tipSeen: true });
+    const store = new MemoryTextStore();
+    store.set(STORAGE_KEY.settings, JSON.stringify({ cupPromptSeen: 'sim', tipSeen: false }));
+    expect(new SaveRepository(store).load('settings')).toEqual({ tipSeen: false });
+  });
+});

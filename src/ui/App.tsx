@@ -421,9 +421,33 @@ function MainApp() {
     const link = url + encodeChallenge({ kind: 'scenario', id: sc.id, points: o.res.points });
     const r = scenarioShare({ title: sc.title, team: me.country, era: eraSpan(me), opponent: `${opp.country} ${eraSpan(opp)}`, colors: me.colors, resultText: o.res.text, won: o.res.result === 'W', score: `${o.res.score[0]}–${o.res.score[1]}`, points: o.res.points, link, url });
     const next = SCENARIOS[(SCENARIOS.findIndex((x) => x.id === sc.id) + 1) % SCENARIOS.length] as Scenario;
+    // depois da primeira partida (e enquanto nenhuma Copa foi terminada), convida para a Copa completa; respondido uma vez, não volta
+    const showCupInvite = !settings.cupPromptSeen && (repo.load('ranking') ?? []).length === 0;
+    const answerInvite = () => saveSettings({ ...settings, cupPromptSeen: true });
     return (
       <>
         <ScenarioOutcome sc={sc} res={o.res} best={o.best} improved={o.improved} />
+        {showCupInvite && (
+          <section className="panel invite" aria-label="Convite para a Copa completa">
+            <div>
+              <b>Quer jogar uma Copa completa?</b>
+              <div className="muted">Escolha uma seleção de qualquer época e enfrente 31 adversárias, com fase de grupos e mata-mata (cerca de 20 min).</div>
+            </div>
+            <div className="row">
+              <button
+                className="primary"
+                onClick={() => {
+                  answerInvite();
+                  registerCustom(undefined);
+                  go({ mode: 'ready', screen: 'pick' });
+                }}
+              >
+                Escolher seleção
+              </button>
+              <button className="ghost" onClick={answerInvite}>Agora não</button>
+            </div>
+          </section>
+        )}
         <ShareBar text={r.text} card={r.card} filename={`novo-fm-${sc.id}.png`} />
         <div className="row" style={{ justifyContent: 'center' }}>
           <button className="primary" onClick={() => playScenarioNow(sc)}>Tentar de novo (elenco automático)</button>
