@@ -83,18 +83,18 @@ Por jogo, entre seleções-era sorteadas: impedimento 3,1; defesa difícil 0,75;
 
 Robô guloso: a cada rodada escolhe o melhor jogador disponível (nota x encaixe) para uma vaga vazia, e só troca o sorteio (3 trocas) quando a melhor opção vale menos de 60. Depois joga uma Copa com todas as eras, com o time controlado pela mesma IA das outras seleções.
 
-Resultado com **1.000 drafts**, formações alternadas, Copa de todas as eras (sorteio com potes por força; 872 seleções-era no sorteio, com as gerações e os craques da Fase 6.7):
+Resultado com **1.000 drafts**, formações alternadas, Copa de todas as eras (sorteio com potes por força; 872 seleções-era no sorteio, com as gerações, os craques da Fase 6.7 e o perfil de artilheiro; `ENGINE_VERSION` 3):
 
 | Fase mais longe | % dos drafts |
 | --- | --- |
-| Campeão | **16,9%** |
-| Vice | 7,5% |
-| Semifinal | 15,6% |
-| Quartas | 20,5% |
-| Oitavas | 29,4% |
-| Grupos | 10,1% |
+| Campeão | **16,4%** |
+| Vice | 8,8% |
+| Semifinal | 16,3% |
+| Quartas | 20,7% |
+| Oitavas | 27,8% |
+| Grupos | 10,0% |
 
-O alvo era campeão em menos de 40%: o robô vence 16,9% das Copas (contra 3,1% de uma seleção qualquer entre 32). O Elo médio do time do robô é 2.368 contra 1.749 dos adversários, e mesmo assim o mata-mata é de partida única, com zebras. A diferença está em escolher só entre os 40 jogadores de uma seleção sorteada ao acaso (muitas fracas) e ainda ter de preencher cada posição.
+O alvo era campeão em menos de 40%: o robô vence 16,4% das Copas (contra 3,1% de uma seleção qualquer entre 32). O Elo médio do time do robô é 2.370 contra 1.749 dos adversários, e mesmo assim o mata-mata é de partida única, com zebras. A diferença está em escolher só entre os 40 jogadores de uma seleção sorteada ao acaso (muitas fracas) e ainda ter de preencher cada posição.
 
 ## Limites conhecidos
 

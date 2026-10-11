@@ -2,7 +2,7 @@
 
 Manager de seleções históricas que roda inteiro no navegador. Você escolhe uma seleção de uma era (por exemplo "Brasil anos 70" ou "Hungria 1954–57"), convoca, define a tática e disputa uma Copa do Mundo de 32 seleções, vendo as partidas em 2D com narração lance a lance.
 
-- **Força real, elenco fictício:** a força de cada seleção-era vem de resultados históricos reais (Elo calculado de ~49 mil jogos). Os jogadores são 100% gerados, com nomes inventados e sem semelhança proposital com jogadores reais. Sem escudos de federações: só o nome do país e as cores.
+- **Força real, elenco fictício:** a força de cada seleção-era vem de resultados históricos reais (Elo calculado de ~49 mil jogos; a dependência de um craque artilheiro vem dos gols reais registrados). Os jogadores são 100% gerados, com nomes inventados e sem semelhança proposital com jogadores reais. Sem escudos de federações: só o nome do país e as cores.
 - **Só cliente:** sem backend, cadastro, rede em runtime ou coleta de dados. O progresso fica no navegador (`localStorage`).
 - **Motor determinístico:** mesma seed + mesmos comandos = mesma partida (replay idêntico).
 

@@ -5,11 +5,12 @@
 | Item | Valor |
 | --- | --- |
 | Base | [martj42/international_results](https://github.com/martj42/international_results) |
-| Arquivos usados | `results.csv`, `shootouts.csv` (copiados em `data/raw/`) |
+| Arquivos usados | `results.csv`, `shootouts.csv`, `goalscorers.csv` (copiados em `data/raw/`) |
 | Licença | **CC0 1.0 Universal** (domínio público), arquivo `LICENSE` na raiz do repositório; cópia em `data/raw/LICENSE-martj42-CC0.txt` |
-| Baixado em | 3 de outubro de 2026 |
+| Baixado em | 3 de outubro de 2026 (`results.csv`, `shootouts.csv`); 11 de outubro de 2026 (`goalscorers.csv`) |
 | SHA-256 `results.csv` | `df35268f8fc341ff7fb93d448b4e40356676ac35300a6b4461fd199a99ac1514` |
 | SHA-256 `shootouts.csv` | `2acdc95fdad14f5f17200150a1a4a5fa6c2ccf57d31c8b4f61a2c7d9c0493113` |
+| SHA-256 `goalscorers.csv` | `e02b25cfcad3fca9af79a5cf075c33a6875416d6d80e5ab42514535cb0d639fe` (3.442.482 bytes, 47.914 gols) |
 
 O README do repositório não cita a origem dos resultados individuais; a CC0 cobre a compilação. Resultados de jogos são fatos. Mesmo sem exigência, a fonte é creditada aqui e em `data/world.json` (`generatedFrom`).
 
@@ -29,5 +30,7 @@ A Fjelstul World Cup Database (CC-BY-SA 4.0, com nomes reais) **não** é usada 
 7. **Média de gols por década:** na base inteira e só em jogos entre seleções com Elo >= 1650 (`goalsPerMatchCompetitive`, a referência da calibração).
 8. **Elencos sob demanda:** o `world.json` (cerca de 580 KB) guarda **só dados de seleção**. Os ~40 jogadores de cada seleção-era são gerados na hora por `squadOf()` (`src/data/squads.ts`), com seed fixa `squad:<id>`: o elenco é sempre o mesmo. Nomes inventados por cultura (prenome genérico + sobrenome montado por sílabas), nível ligado ao Elo e estilos coerentes com o período.
 9. **Craque com traço:** o melhor jogador de cada elenco é o craque, com um traço especial coerente com a posição (ex.: "driblador decisivo", "muralha", "goleiro paredão", "armador cerebral", "artilheiro de área"). O traço reforça os atributos dele e, no motor, aumenta o protagonismo nos chutes (artilheiros, dribladores, camisas 10) ou nos passes decisivos (armadores). Os nomes são inventados e sem semelhança com jogadores reais.
+10. **Concentração de gols (`topShare`):** de `goalscorers.csv`, a parte dos gols de cada seleção-era marcados pelo artilheiro principal (gols contra de fora). O arquivo registra o artilheiro de só 14% dos gols dos anos 30, 24% nos 70, 40% nos anos 2000 e 49% nos 2020, mas sempre em jogos inteiros; com poucos gols a medida é ruidosa, então vem encolhida para a mediana (0,17) com peso N / (N + 40), e abaixo de 10 gols não se mede (791 das 872 seleções-era têm a medida). Exemplos: Noruega 2020 0,40, Portugal 1960 0,32, Croácia 1990 0,33; Brasil 1970 0,14. Os nomes dos artilheiros só servem para somar: **nenhum nome entra no `world.json` nem no jogo**, os elencos continuam fictícios.
+11. **Perfil de artilheiro no elenco** (`applyScoringProfile`, `src/data/squad.ts`): depois de ids e ordem fixados, a finalização dos 4 melhores atacantes muda conforme o `topShare`. Concentrada (seleção de um craque artilheiro): o atacante principal ganha até 7 (sem passar o craque do elenco) e os 3 seguintes perdem até 5. Espalhada: os 3 seguintes ganham até 4. Valor neutro (0,19) ou ausente: elenco idêntico ao anterior. Ids, nomes, posições, idades e estilos não mudam, então saves e nomes personalizados continuam apontando para os mesmos jogadores. `ENGINE_VERSION` 3.
 
 O `data/world.json` é versionado; rodar `npm run build-world` de novo reproduz o mesmo arquivo (há teste para isso). O jogo nunca acessa a rede.
