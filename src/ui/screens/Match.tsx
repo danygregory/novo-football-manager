@@ -1,34 +1,36 @@
 import { SPEEDS, type Speed } from '../speed';
-import { STAGE_LABEL, type Fixture, type Tournament } from '../../engine/tournament';
-import { Bar, NationName, STYLE_LABEL } from '../components/common';
+import type { Fixture, Tournament } from '../../engine/tournament';
+import { Bar, NationName, STYLE_LABEL, WhoBadge } from '../components/common';
+import { kitColors, stageTitle } from '../teams';
 import { nationsById } from '../world';
 
 export function MatchIntro({ t, fixture, busy, onInstant, onWatch, lastSpeed, onBack }: { t: Tournament; fixture: Fixture; busy: boolean; onInstant: () => void; onWatch: (speed: Speed) => void; lastSpeed: Speed; onBack: () => void }) {
   const home = nationsById.get(fixture.home)!;
   const away = nationsById.get(fixture.away)!;
   const mineIsHome = fixture.home === t.userNationId;
+  const shirts = kitColors(home, away);
   const tac = t.userLineup.tactics;
   const knockout = !fixture.stage.startsWith('G');
   return (
     <div>
       <div className="row between" style={{ marginBottom: 12 }}>
         <div>
-          <h2>{STAGE_LABEL[fixture.stage]}</h2>
+          <h2>{stageTitle(t, fixture.stage)}</h2>
           <div className="muted">Campo neutro{knockout ? ' · mata-mata: empate vai para prorrogação e pênaltis' : ''}</div>
         </div>
         <button className="ghost" onClick={onBack} disabled={busy}>Voltar</button>
       </div>
       <div className="panel scoreboard">
         <div className="teams">
-          <div className="left"><NationName nation={home} /></div>
+          <div className="left"><NationName nation={home} shirt={shirts[0]} /></div>
           <div className="score muted">x</div>
-          <div className="right"><NationName nation={away} /></div>
+          <div className="right"><NationName nation={away} shirt={shirts[1]} /></div>
         </div>
       </div>
       <div className="cols" style={{ marginTop: 16 }}>
-        {[home, away].map((n) => (
+        {[home, away].map((n, i) => (
           <div key={n.id} className="panel">
-            <h3><NationName nation={n} /></h3>
+            <h3><NationName nation={n} shirt={shirts[i]} /><WhoBadge mine={n.id === t.userNationId} /></h3>
             <div className="row between muted"><span>Força (Elo)</span><span>{Math.round(n.elo)}</span></div>
             <Bar value={n.elo - 1450} max={800} />
             <p className="muted" style={{ marginBottom: 0 }}>Estilo: {STYLE_LABEL[n.playStyle]}</p>

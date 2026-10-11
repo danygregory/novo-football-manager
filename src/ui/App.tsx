@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { stageTitle } from './teams';
 import { STAGE_LABEL, userFixture, type Cut, type Fixture, type MatchRecord, type Tournament } from '../engine/tournament';
 import { finalizeDraft, startDraft, type DraftConfig, type DraftState } from '../data/draft';
 import { squadOf } from '../data/squads';
@@ -446,7 +447,7 @@ function MainApp() {
             <>
               <Kit nation={user} />
               <b>{nationLabel(user)}</b>
-              {t && <> · {t.scenario && t.stage === 'DONE' ? 'Cenário encerrado' : STAGE_LABEL[t.stage]}</>}
+              {t && <> · {t.scenario && t.stage === 'DONE' ? 'Cenário encerrado' : stageTitle(t, t.stage)}</>}
             </>
           )}
         </div>
@@ -619,11 +620,11 @@ function MainApp() {
       )}
 
       {g.screen === 'live' && g.live && (
-        <LiveMatch showTip={!settings.tipSeen} onTipSeen={() => saveSettings({ ...settings, tipSeen: true })} key={g.live.start.fixture.id} start={g.live.start} speed0={g.live.speed} reduced={reduced} onSpeed={rememberSpeed} onFinished={(r, rec) => void finishLive(r, rec)} onBack={() => void exitLive()} />
+        <LiveMatch title={stageTitle(t ?? {}, g.live.start.fixture.stage)} showTip={!settings.tipSeen} onTipSeen={() => saveSettings({ ...settings, tipSeen: true })} key={g.live.start.fixture.id} start={g.live.start} speed0={g.live.speed} reduced={reduced} onSpeed={rememberSpeed} onFinished={(r, rec) => void finishLive(r, rec)} onBack={() => void exitLive()} />
       )}
 
       {g.screen === 'post' && g.last && t && (
-        <PostMatch report={g.last.report} fixture={g.last.fixture} userNationId={t.userNationId} onContinue={() => go({ screen: t.stage === 'DONE' ? (t.scenario ? 'scenarioEnd' : 'end') : 'cup' })} />
+        <PostMatch report={g.last.report} title={stageTitle(t, g.last.fixture.stage)} userNationId={t.userNationId} onContinue={() => go({ screen: t.stage === 'DONE' ? (t.scenario ? 'scenarioEnd' : 'end') : 'cup' })} />
       )}
 
       {g.screen === 'end' && t && (

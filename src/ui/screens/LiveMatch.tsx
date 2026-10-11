@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { LiveState, MatchCommand } from '../../engine/match';
 import { ClipButtons } from '../components/ClipButtons';
-import { STAGE_LABEL, type Fixture, type MatchRecord } from '../../engine/tournament';
+import type { Fixture, MatchRecord } from '../../engine/tournament';
 import type { MatchEvent, MatchReport } from '../../engine/types';
 import type { MatchDelta } from '../../engine/worker';
-import { EVENT_ICON, NationName } from '../components/common';
+import { EVENT_ICON, Kit, NationName, WhoBadge } from '../components/common';
 import { engine } from '../engineClient';
 import { Choreo, type Fx, type PlayerBrief } from '../pitch/choreo';
 import type { DotMeta, PitchView } from '../pitch/PitchView';
 import { PenaltyChoice, PenaltyScene, ShootoutBoard, type Mark } from './PenaltyScreen';
 import { ChangesPanel, DecisionModal, HalftimeScreen, LivePanel, QuickSub, ShoutBar, TeamPanel } from './LiveParts';
+import { kitColors } from '../teams';
 import { nationsById, playerById } from '../world';
 
 export interface LiveStart extends MatchDelta {
@@ -26,13 +27,6 @@ const DRAMATIC = new Set<MatchEvent['type']>(['goal', 'hard-save', 'big-miss', '
 const SHOT_TYPES = new Set<MatchEvent['type']>(['goal', 'save', 'hard-save', 'miss', 'big-miss', 'post']);
 
 const lastName = (name: string) => name.split(' ').slice(-1)[0] ?? name;
-
-function colorDistance(a: string, b: string): number {
-  const rgb = (c: string) => [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
-  const [r1, g1, b1] = rgb(a) as [number, number, number];
-  const [r2, g2, b2] = rgb(b) as [number, number, number];
-  return Math.hypot(r1 - r2, g1 - g2, b1 - b2);
-}
 
 interface FeedItem {
   key: number;
@@ -87,17 +81,11 @@ interface Model {
   skipSignal: number;
 }
 
-export function LiveMatch({ start, speed0, reduced, onSpeed, onFinished, onBack, showTip, onTipSeen }: { /** Dica da primeira partida (some ao tocar em "Entendi"). */ showTip?: boolean; onTipSeen?: () => void; start: LiveStart; speed0: Speed; reduced: boolean; onSpeed: (s: Speed) => void; onFinished: (report: MatchReport, record: MatchRecord) => void; onBack: () => void }) {
+export function LiveMatch({ start, title, speed0, reduced, onSpeed, onFinished, onBack, showTip, onTipSeen }: { /** Dica da primeira partida (some ao tocar em "Entendi"). */ showTip?: boolean; onTipSeen?: () => void; /** Nome da fase da Copa ou do cenário (`stageTitle`). */ title: string; start: LiveStart; speed0: Speed; reduced: boolean; onSpeed: (s: Speed) => void; onFinished: (report: MatchReport, record: MatchRecord) => void; onBack: () => void }) {
   const { fixture, userSide } = start;
   const nations = [nationsById.get(fixture.home)!, nationsById.get(fixture.away)!] as const;
   const mine = nations[userSide];
-  const colors = useMemo(() => {
-    const c0 = nations[0].colors.primary;
-    let c1 = nations[1].colors.primary;
-    if (colorDistance(c0, c1) < 90) c1 = nations[1].colors.secondary;
-    if (colorDistance(c0, c1) < 90) c1 = '#3b82d6';
-    return [c0, c1] as const;
-  }, [nations]);
+  const colors = useMemo(() => kitColors(nations[0], nations[1]), [nations]);
 
   const reducedRef = useRef(reduced);
   reducedRef.current = reduced;
@@ -565,7 +553,7 @@ export function LiveMatch({ start, speed0, reduced, onSpeed, onFinished, onBack,
     <div>
       <div className="row between" style={{ marginBottom: 10 }}>
         <div>
-          <h2 style={{ marginBottom: 0 }}>{STAGE_LABEL[fixture.stage]}</h2>
+          <h2 style={{ marginBottom: 0 }}>{title}</h2>
           <div className="muted">Campo neutro · você é {mine.country}</div>
         </div>
         <button className="ghost" onClick={onBack} title="Abandona a visualização (a partida será simulada)">Sair</button>
@@ -573,14 +561,14 @@ export function LiveMatch({ start, speed0, reduced, onSpeed, onFinished, onBack,
 
       <div className="panel scoreboard live-score">
         <div className="teams">
-          <div className="left"><NationName nation={nations[0]} /></div>
+          <div className="left"><NationName nation={nations[0]} shirt={colors[0]} /><WhoBadge mine={userSide === 0} /></div>
           <div>
             <div className="score">
               <span key={`a${m.score[0]}`} className={m.scoreBump ? 'bump' : ''}>{m.score[0]}</span> x <span key={`b${m.score[1]}`} className={m.scoreBump ? 'bump' : ''}>{m.score[1]}</span>
             </div>
             {hasShootout && <div className="muted">pênaltis {m.shootout[0]} x {m.shootout[1]}</div>}
           </div>
-          <div className="right"><NationName nation={nations[1]} /></div>
+          <div className="right"><NationName nation={nations[1]} shirt={colors[1]} /><WhoBadge mine={userSide === 1} /></div>
         </div>
         <div className="clock">{done ? 'Fim de jogo' : m.halftimeBanner ? 'Intervalo' : m.simFinished && m.report?.shootout && m.buffer.length === 0 ? 'Pênaltis' : m.simFinished && m.buffer.length === 0 && !choreo.busy ? 'Fim de jogo' : `${minute}'`}{m.state.extraTime && !done ? ' · prorrogação' : ''}</div>
       </div>
@@ -589,8 +577,23 @@ export function LiveMatch({ start, speed0, reduced, onSpeed, onFinished, onBack,
 
       <div className="live-grid">
         <div>
+          {showTip && (
+            <div className="panel tip" role="note">
+              <span><b>Como jogar:</b> Pausar abre a tática e as trocas · 2x/4x acelera · Gritos mudam o jogo por 10 min.</span>
+              <button className="ghost" onClick={onTipSeen}>Entendi</button>
+            </div>
+          )}
           <div ref={wrap} className={`pitch-wrap ${shaking ? 'shake' : ''}`}>
             <div ref={host} />
+            <div className="legend" role="group" aria-label="Legenda dos times">
+              {nations.map((n, i) => (
+                <span key={n.id + i}>
+                  <Kit nation={n} shirt={colors[i]} />
+                  {n.country} · {n.kind === 'peak' ? `${n.span[0]}–${String(n.span[1]).slice(2)}` : `anos ${String(n.decade).slice(2)}`}
+                  {i === userSide ? ' (você)' : ''}
+                </span>
+              ))}
+            </div>
             {m.flash && (
               <div className="goal-banner" key={m.flash.sub}>
                 <div className="goal-title">{m.flash.title}</div>
@@ -601,12 +604,7 @@ export function LiveMatch({ start, speed0, reduced, onSpeed, onFinished, onBack,
             {m.clip && !m.replay && <ClipButtons clip={m.clip} />}
           </div>
           <div className="ticker muted">{m.ticker}</div>
-          {showTip && (
-            <div className="panel tip" role="note">
-              <b>Como jogar:</b> <b>2x/4x</b> muda a velocidade · <b>Pausar</b> ou <b>Substituir / Tática</b> para mexer no time · os <b>Gritos</b> mudam o jogo por 10 minutos · se estiver perdendo no fim, o jogo para e pergunta o que você faz.
-              <button className="ghost" style={{ marginLeft: 8 }} onClick={onTipSeen}>Entendi</button>
-            </div>
-          )}
+          <div className="live-bar">
           <div className="row controls">
             <button onClick={togglePause} disabled={done || busy}>{m.paused ? '▶ Retomar' : '⏸ Pausar'}</button>
             <button className={m.speed === 2 ? 'active' : ''} onClick={() => { m.speed = 2; onSpeed(2); render(); }}>2x</button>
@@ -617,6 +615,7 @@ export function LiveMatch({ start, speed0, reduced, onSpeed, onFinished, onBack,
             {done && <button className="primary" onClick={() => m.report && m.record && onFinished(m.report, m.record)}>Ver pós-jogo</button>}
           </div>
           <ShoutBar state={m.state} userSide={userSide} clock={m.simClock} disabled={done || m.simFinished || m.halftimeBanner} send={(c) => void sendSoft(c)} />
+          </div>
           {m.halftimeBanner && !done && (
             <HalftimeScreen state={m.state} userSide={userSide} fixtureNations={[fixture.home, fixture.away]} busy={busy} send={send} onResume={resumeSecondHalf} />
           )}

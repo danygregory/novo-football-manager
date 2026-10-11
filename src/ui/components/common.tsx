@@ -19,14 +19,20 @@ export function rowActivate(onActivate: () => void, selected?: boolean) {
   };
 }
 
-export function Kit({ nation }: { nation: Pick<NationEra, 'colors'> }) {
-  return <span className="kit" style={{ background: `linear-gradient(90deg, ${nation.colors.primary} 50%, ${nation.colors.secondary} 50%)` }} />;
+/** Camisa da seleção (duas cores) ou, numa partida, a cor única que os dois times usam no campo (`shirt`, de `kitColors`). */
+export function Kit({ nation, shirt }: { nation: Pick<NationEra, 'colors'>; shirt?: string }) {
+  return <span className="kit" style={{ background: shirt ?? `linear-gradient(90deg, ${nation.colors.primary} 50%, ${nation.colors.secondary} 50%)` }} />;
 }
 
-export function NationName({ nation, short }: { nation: NationEra; short?: boolean }) {
+/** Etiqueta de quem é quem numa partida: VOCÊ (o time do jogador) ou ADVERSÁRIO. */
+export function WhoBadge({ mine }: { mine: boolean }) {
+  return <span className={`who ${mine ? 'you' : 'opp'}`}>{mine ? 'VOCÊ' : 'ADVERSÁRIO'}</span>;
+}
+
+export function NationName({ nation, short, shirt }: { nation: NationEra; short?: boolean; shirt?: string }) {
   return (
     <span>
-      <Kit nation={nation} />
+      <Kit nation={nation} shirt={shirt} />
       {short ? nation.country : nationLabel(nation)}
     </span>
   );

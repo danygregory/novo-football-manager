@@ -257,3 +257,20 @@ button, tr.clickable, select, summary { touch-action: manipulation; }
 button.big { font-size: 1.1rem; padding: .7em 1.6em; }
 .tip { margin: 8px 0; padding: 10px 14px; font-size: .9rem; line-height: 1.5; }
 .home .quick .row.between, .home .resume .row.between { justify-content: space-between; }
+
+/* partida: quem é quem, legenda e a tela cabendo na janela (campo e controles sempre à vista) */
+.who { display: inline-block; font-size: .64rem; font-weight: 800; letter-spacing: .06em; padding: .15em .6em; margin-left: 8px; border-radius: 999px; vertical-align: middle; }
+.who.you { background: var(--accent); color: var(--accent-ink); }
+.who.opp { border: 1px solid var(--line); color: var(--muted); }
+.legend { position: absolute; left: 8px; bottom: 8px; z-index: 2; display: flex; flex-wrap: wrap; gap: 2px 14px; padding: 3px 10px; border-radius: 999px; background: rgba(14,26,20,.78); font-size: .78rem; line-height: 1.5; color: var(--text); }
+.live-bar { position: sticky; bottom: 0; z-index: 4; background: var(--bg); padding: 6px 0 2px; border-top: 1px solid var(--line); }
+.live-bar .shouts { margin: 6px 0 2px; }
+/* celular: a barra seria alta demais (4 linhas) e cobriria o campo; a página rola e os controles ficam logo abaixo dele */
+@media (max-width: 700px) { .live-bar { position: static; border-top: 0; padding: 0; } }
+.pitch-wrap { display: flex; justify-content: center; }
+.pitch-wrap canvas { display: block; width: auto !important; max-width: 100%; max-height: calc(100vh - 400px); min-height: 240px; }
+.tip { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 8px; padding: 6px 12px; }
+.live-score { padding: 6px 14px; }
+.live-score .score { font-size: 2rem; }
+.live-score .teams { font-size: 1.15rem; }
+.live-score .clock { font-size: .9rem; }

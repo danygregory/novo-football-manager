@@ -1,11 +1,11 @@
 import type { MatchReport } from '../../engine/types';
-import { STAGE_LABEL, type Fixture } from '../../engine/tournament';
 import { EVENT_ICON, NationName, STAT_ROWS_FULL, StatBars } from '../components/common';
 import { nationsById, playerById } from '../world';
 
 const KEY_EVENTS = new Set(['goal', 'hard-save', 'big-miss', 'post', 'injury', 'yellow', 'red', 'sub', 'halftime', 'fulltime', 'penalty-shootout', 'tactic']);
 
-export function PostMatch({ report, fixture, userNationId, onContinue }: { report: MatchReport; fixture: Fixture; userNationId: string; onContinue: () => void }) {
+/** `title`: nome da fase da Copa ou do cenário (`stageTitle`). */
+export function PostMatch({ report, title, userNationId, onContinue }: { report: MatchReport; title: string; userNationId: string; onContinue: () => void }) {
   const home = nationsById.get(report.teams[0])!;
   const away = nationsById.get(report.teams[1])!;
   const ratingEntries = Object.entries(report.ratings).sort((x, y) => y[1] - x[1]);
@@ -17,7 +17,7 @@ export function PostMatch({ report, fixture, userNationId, onContinue }: { repor
   return (
     <div>
       <div className="row between" style={{ marginBottom: 12 }}>
-        <h2>Pós-jogo · {STAGE_LABEL[fixture.stage]}</h2>
+        <h2>Pós-jogo · {title}</h2>
         <button className="primary" onClick={onContinue}>Continuar</button>
       </div>
       <div className="panel scoreboard">
