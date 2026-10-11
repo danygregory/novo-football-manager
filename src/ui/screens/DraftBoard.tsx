@@ -4,7 +4,7 @@ import { fit } from '../../engine/lineup';
 import { overall } from '../../engine/player';
 import type { Formation, Player, Position, Slot } from '../../engine/types';
 import { canPlace, pick, pickError, pickedIds, reroll, rollSquad, RESERVES, type DraftState } from '../../data/draft';
-import { ATTR_LABEL, Kit, PosPill, rowActivate } from '../components/common';
+import { ATTR_LABEL, Kit, PosPill, attrStyle, rowActivate } from '../components/common';
 import { nationLabel, world } from '../world';
 
 /** Linhas do campo de cada formação (índices dos slots), do gol ao ataque. */
@@ -134,7 +134,7 @@ export function DraftBoard({ state, onChange, onFinish, onBack }: { state: Draft
                   <thead>
                     <tr>
                       <th>Pos</th><th>Nome</th><th className="num">Idade</th><th>Estilo</th>
-                      {!memory && ATTR_LABEL.filter(([k]) => k !== 'goleiro').map(([, l]) => <th key={l} className="num">{l}</th>)}
+                      {!memory && ATTR_LABEL.map(([, l]) => <th key={l} className="num">{l}</th>)}
                       {!memory && <th className="num">GER</th>}
                     </tr>
                   </thead>
@@ -145,7 +145,7 @@ export function DraftBoard({ state, onChange, onFinish, onBack }: { state: Draft
                         <td>{p.name}</td>
                         <td className="num">{p.age}</td>
                         <td className="muted">{p.style}</td>
-                        {!memory && ATTR_LABEL.filter(([k]) => k !== 'goleiro').map(([k]) => <td key={k} className="num">{p.attrs[k]}</td>)}
+                        {!memory && ATTR_LABEL.map(([k]) => <td key={k} className="num" style={attrStyle(k, p)}>{p.attrs[k]}</td>)}
                         {!memory && <td className="num"><b>{Math.round(overall(p))}</b></td>}
                       </tr>
                     ))}

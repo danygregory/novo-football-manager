@@ -14,6 +14,10 @@ test('draft: a tabela mostra GOL, que é o destaque dos goleiros (nos demais fic
   const headers = await page.locator('.draft-list thead th').allInnerTexts();
   expect(headers.map((h) => h.trim())).toEqual(['POS', 'NOME', 'IDADE', 'ESTILO', 'DEF', 'PAS', 'DRI', 'FIN', 'FÍS', 'VEL', 'GOL', 'GER']);
 
+  // a coluna nova não pode ficar escondida atrás de uma rolagem lateral que ninguém percebe: GOL e GER precisam caber no painel
+  const fit = await page.locator('.draft-list').evaluate((el) => ({ conteudo: el.scrollWidth, painel: el.clientWidth }));
+  expect(fit.conteudo, 'a tabela do draft é mais larga que o painel').toBeLessThanOrEqual(fit.painel + 1);
+
   await page.locator('.tabs').getByRole('button', { name: 'Goleiros' }).click();
   const gk = await page.locator('.draft-list tbody tr').evaluateAll((rows) => rows.map((r) => [...r.querySelectorAll('td.num')].map((c) => Number(c.textContent))));
   expect(gk.length).toBeGreaterThan(0);

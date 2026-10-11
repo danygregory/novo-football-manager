@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { autoSquad23 } from '../../engine/lineup';
 import type { Player, Position } from '../../engine/types';
-import { ATTR_LABEL, Bar, NationName, PosPill, ovr, rowActivate } from '../components/common';
+import { ATTR_LABEL, Bar, NationName, PosPill, attrStyle, ovr, rowActivate } from '../components/common';
 import { squadOf } from '../../data/squads';
 import { nationsById } from '../world';
 import { nameOverrides } from '../../data/squads';
@@ -127,7 +127,7 @@ export function Squad({
                 <td className="num">{p.age}</td>
                 <td className="muted">{p.style}</td>
                 {ATTR_LABEL.map(([k]) => (
-                  <td key={k} className="num" style={k === 'goleiro' && p.position !== 'GK' ? { color: 'var(--muted)' } : undefined}>{p.attrs[k]}</td>
+                  <td key={k} className="num" style={attrStyle(k, p)}>{p.attrs[k]}</td>
                 ))}
                 <td className="num"><b>{ovr(p)}</b></td>
                 <td style={{ width: 90 }}><Bar value={cond?.[p.id] ?? p.condition} kind="cond" /></td>

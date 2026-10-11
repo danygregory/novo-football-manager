@@ -60,6 +60,9 @@ export const ATTR_LABEL: [keyof Attributes, string][] = [
   ['goleiro', 'GOL'],
 ];
 
+/** O atributo de goleiro só importa para goleiros: nos demais jogadores o número aparece esmaecido. */
+export const attrStyle = (key: keyof Attributes, p: Pick<Player, 'position'>) => (key === 'goleiro' && p.position !== 'GK' ? { color: 'var(--muted)' } : undefined);
+
 export const ovr = (p: Player) => Math.round(overall(p));
 
 export const STYLE_LABEL: Record<NationEra['playStyle'], string> = {
