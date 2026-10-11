@@ -8,7 +8,8 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const minArg = process.argv.find((a) => a.startsWith('--min='));
 const min = minArg ? Number(minArg.slice(6)) : DEFAULT_MIN_MATCHES;
 const csv = readFileSync(resolve(root, 'data/raw/results.csv'), 'utf8');
-const { world, summaries } = buildWorldAndSummaries(csv, min);
+const scorersCsv = readFileSync(resolve(root, 'data/raw/goalscorers.csv'), 'utf8');
+const { world, summaries } = buildWorldAndSummaries(csv, min, scorersCsv);
 const out = resolve(root, 'data/world.json');
 mkdirSync(dirname(out), { recursive: true });
 // uma linha por seleção-era: arquivo leve e com diff legível

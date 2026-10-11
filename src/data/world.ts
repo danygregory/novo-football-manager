@@ -2,9 +2,10 @@ import { COUNTRY_BY_NAME, eraContinent, eraName, type CountryMeta } from './coun
 import { COMPETITIVE_ELO, DECADES, computeElo, toRawMatches, type TeamMatch } from './elo';
 import { PEAK_MIN_YEARS, findPeaks, findWorldTopWindows, summarize, windowStats, type PeakWindow, type WindowStats } from './eras';
 import { parseCsv } from './csv';
+import { scorerIndex, topShare } from './scorers';
 import type { Continent, Decade, DecadeStats, NationEra, PlayStyle, World } from '../engine/types';
 
-export const WORLD_VERSION = 5;
+export const WORLD_VERSION = 6;
 /** Mínimo de jogos da seleção na década para virar seleção-era (ajustável por `--min` no build-world). */
 export const DEFAULT_MIN_MATCHES = 15;
 /** Mínimo de jogos de uma geração (4 a 8 anos): menor que o da década porque as seleções jogavam bem menos antigamente. */
@@ -65,13 +66,14 @@ function classifyStyle(c: Candidate, decadeAvgGoals: number): PlayStyle {
  * e, além delas, as gerações (picos de 4 a 8 anos acima da média da seleção, com nome do período). Puro e determinístico.
  * Só dados da seleção: os elencos são gerados sob demanda (ver squads.ts).
  */
-export function buildWorld(resultsCsv: string, minMatches = DEFAULT_MIN_MATCHES): World {
-  return buildWorldAndSummaries(resultsCsv, minMatches).world;
+export function buildWorld(resultsCsv: string, minMatches = DEFAULT_MIN_MATCHES, scorersCsv?: string): World {
+  return buildWorldAndSummaries(resultsCsv, minMatches, scorersCsv).world;
 }
 
 /** O mundo (leve, usado pelo motor) e os resumos factuais por id (carregados só quando a tela os mostra). */
-export function buildWorldAndSummaries(resultsCsv: string, minMatches = DEFAULT_MIN_MATCHES): { world: World; summaries: Record<string, string> } {
+export function buildWorldAndSummaries(resultsCsv: string, minMatches = DEFAULT_MIN_MATCHES, scorersCsv?: string): { world: World; summaries: Record<string, string> } {
   const { eras, decades, log } = computeElo(toRawMatches(parseCsv(resultsCsv)));
+  const scorers = scorersCsv ? scorerIndex(scorersCsv) : undefined;
 
   const candidates: Candidate[] = [];
   for (const acc of eras) {
@@ -134,6 +136,7 @@ export function buildWorldAndSummaries(resultsCsv: string, minMatches = DEFAULT_
   });
   const avgGoals = new Map(decadeStats.map((d) => [d.decade, d.goalsPerMatchCompetitive]));
 
+  const shareOf = (c: Candidate) => (scorers ? topShare(scorers, c.meta.dataName, c.span[0], c.span[1]) : undefined);
   const summaries: Record<string, string> = {};
   const nations: NationEra[] = candidates
     .sort((a, b) => a.decade - b.decade || b.elo - a.elo || a.meta.code.localeCompare(b.meta.code) || a.span[0] - b.span[0])
@@ -171,10 +174,11 @@ export function buildWorldAndSummaries(resultsCsv: string, minMatches = DEFAULT_
         span: c.span,
         percentile,
         record: c.acc.record,
+        ...(shareOf(c) !== undefined ? { topShare: shareOf(c) } : {}),
       };
     });
 
-  return { world: { version: WORLD_VERSION, generatedFrom: 'martj42/international_results (CC0)', decades: decadeStats, nations }, summaries };
+  return { world: { version: WORLD_VERSION, generatedFrom: 'martj42/international_results (CC0): results.csv, goalscorers.csv', decades: decadeStats, nations }, summaries };
 }
 
 /** Posição (1 = mais forte) do Elo entre os da década. */

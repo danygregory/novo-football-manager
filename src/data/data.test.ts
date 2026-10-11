@@ -7,11 +7,13 @@ import type { World } from '../engine/types';
 import { COUNTRY_BY_NAME } from './countries';
 import { parseCsv } from './csv';
 import { computeElo, toRawMatches } from './elo';
+import { scorerIndex, topShare, TOP_SHARE_MEDIAN } from './scorers';
 import { SQUAD_SIZE, generateSquad } from './squad';
 import { buildWorld, buildWorldAndSummaries } from './world';
 import { squadOf } from './squads';
 
 const csv = readFileSync(resolve(__dirname, '../../data/raw/results.csv'), 'utf8');
+const scorersCsv = readFileSync(resolve(__dirname, '../../data/raw/goalscorers.csv'), 'utf8');
 const committed = JSON.parse(readFileSync(resolve(__dirname, '../../data/world.json'), 'utf8')) as World;
 const summaries = JSON.parse(readFileSync(resolve(__dirname, '../../data/summaries.json'), 'utf8')) as Record<string, string>;
 
@@ -38,7 +40,7 @@ describe('elo', () => {
 
 describe('world.json', () => {
   it('é reproduzido exatamente pelo build-world', () => {
-    const built = buildWorldAndSummaries(csv);
+    const built = buildWorldAndSummaries(csv, undefined, scorersCsv);
     expect(JSON.parse(JSON.stringify(built.world))).toEqual(committed);
     expect(built.summaries).toEqual(summaries);
   });
@@ -111,6 +113,51 @@ describe('world.json', () => {
   it('traz média de gols por década', () => {
     expect(committed.decades.map((d) => d.decade)).toEqual([1930, 1940, 1950, 1960, 1970, 1980, 1990, 2000, 2010, 2020]);
     for (const d of committed.decades) expect(d.goalsPerMatchCompetitive).toBeGreaterThan(1.5);
+  });
+});
+
+describe('concentração de gols (goalscorers.csv)', () => {
+  const header = 'date,home_team,away_team,team,scorer,minute,own_goal,penalty,assist\n';
+  const goal = (date: string, team: string, scorer: string, own = false) => `${date},A,B,${team},${scorer},10,${own ? 'TRUE' : 'FALSE'},FALSE,NA\n`;
+
+  it('conta só gols do time na janela de anos e ignora gols contra', () => {
+    const rows = [goal('1970-01-01', 'Brazil', 'X'), goal('1971-01-01', 'Brazil', 'X'), goal('1972-01-01', 'Brazil', 'Y', true), goal('1980-01-01', 'Brazil', 'Z'), goal('1971-01-01', 'Chile', 'W')];
+    const idx = scorerIndex(header + rows.join(''));
+    expect(idx.get('Brazil')!.map((g) => g.scorer)).toEqual(['X', 'X', 'Z']);
+    expect(idx.get('Chile')!).toHaveLength(1);
+  });
+
+  it('com poucos gols não mede (indefinido); com muitos, a parte do artilheiro principal vem encolhida para a mediana', () => {
+    const few = scorerIndex(header + Array.from({ length: 9 }, (_, i) => goal(`1970-01-0${i + 1}`, 'Brazil', 'X')).join(''));
+    expect(topShare(few, 'Brazil', 1970, 1979)).toBeUndefined();
+    // 100 gols, 50 de um jogador: parte bruta 0,5, encolhida para a mediana mas ainda acima dela
+    const rows = [...Array.from({ length: 50 }, () => goal('1970-05-05', 'Brazil', 'Star')), ...Array.from({ length: 50 }, (_, i) => goal('1970-06-06', 'Brazil', `P${i}`))];
+    const v = topShare(scorerIndex(header + rows.join('')), 'Brazil', 1970, 1979)!;
+    expect(v).toBeGreaterThan(TOP_SHARE_MEDIAN);
+    expect(v).toBeLessThan(0.5);
+    // a mesma parte bruta com menos gols fica mais perto da mediana
+    const rows30 = [...Array.from({ length: 15 }, () => goal('1970-05-05', 'Brazil', 'Star')), ...Array.from({ length: 15 }, (_, i) => goal('1970-06-06', 'Brazil', `P${i}`))];
+    const v30 = topShare(scorerIndex(header + rows30.join('')), 'Brazil', 1970, 1979)!;
+    expect(v30).toBeGreaterThan(TOP_SHARE_MEDIAN);
+    expect(v30).toBeLessThan(v);
+  });
+
+  it('o world.json traz a concentração: seleções de um craque artilheiro (Noruega 2020, Portugal 1960) acima de seleções de gols espalhados (Brasil 1970)', () => {
+    const share = (id: string) => committed.nations.find((n) => n.id === id)!.topShare!;
+    expect(share('NOR-2020')).toBeGreaterThanOrEqual(0.35);
+    expect(share('POR-1960')).toBeGreaterThanOrEqual(0.3);
+    expect(share('BRA-1970')).toBeLessThanOrEqual(0.16);
+    expect(share('NOR-2020')).toBeGreaterThan(share('BRA-1970') + 0.15);
+  });
+
+  it('só aparece onde há gols com artilheiro registrado suficientes, e dentro de [0, 1]', () => {
+    const withShare = committed.nations.filter((n) => n.topShare !== undefined);
+    expect(withShare.length).toBeGreaterThan(300);
+    expect(withShare.length).toBeLessThan(committed.nations.length); // eras antigas têm poucos gols registrados
+    for (const n of withShare) {
+      expect(n.topShare!).toBeGreaterThan(0.05);
+      expect(n.topShare!).toBeLessThan(0.6);
+    }
   });
 });
 
