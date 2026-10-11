@@ -172,7 +172,9 @@ tr.me td { color: var(--accent); font-weight: 650; }
 .pen-box { width: min(860px, 96vw); }
 .pen-svg { width: 100%; height: auto; border-radius: 10px; display: block; background: #0c1830; }
 .pen-zone rect { fill: rgba(242,199,68,.10); stroke: rgba(242,199,68,.55); stroke-width: 2; cursor: pointer; }
-.pen-zone:hover rect { fill: rgba(242,199,68,.38); }
+.pen-zone { outline: none; }
+.pen-zone:hover rect, .pen-zone:focus-visible rect { fill: rgba(242,199,68,.38); }
+.pen-zone:focus-visible rect { stroke: #fff; stroke-width: 4; }
 .pen-zone text { fill: #fff; font-size: 14px; font-weight: 650; pointer-events: none; }
 .pen-name { fill: #fff; font-size: 15px; font-weight: 650; opacity: .9; }
 .pen-label { fill: #f2c744; font-size: 52px; font-weight: 900; stroke: #000; stroke-width: 6px; paint-order: stroke; animation: banner-in .3s ease-out; }

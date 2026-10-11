@@ -140,6 +140,32 @@ export interface PenaltySceneProps {
   skipSignal?: number;
 }
 
+/** Zona clicável da cena como botão: foco por Tab, Enter ou Espaço escolhem, e o leitor de tela lê o rótulo (era só `onClick` em um <g>). */
+export function zoneControl(label: string, pick: () => void) {
+  return {
+    role: 'button' as const,
+    tabIndex: 0,
+    'aria-label': label,
+    onClick: pick,
+    onKeyDown: (e: { key: string; preventDefault: () => void }) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        pick();
+      }
+    },
+  };
+}
+
+const AIM_LABEL: Record<PenaltyZone, string> = {
+  LH: 'Chutar no canto alto à esquerda',
+  CH: 'Chutar no meio alto',
+  RH: 'Chutar no canto alto à direita',
+  LL: 'Chutar no canto baixo à esquerda',
+  CL: 'Chutar no meio baixo',
+  RL: 'Chutar no canto baixo à direita',
+};
+const DIVE_LABEL: Record<Dive, string> = { L: 'Goleiro: pular para a esquerda', C: 'Goleiro: ficar no meio', R: 'Goleiro: pular para a direita' };
+
 export function PenaltyScene({ takerName, keeperName, takerColor, keeperColor, result, short = false, onDone, choose, playKey, skipSignal }: PenaltySceneProps) {
   const [t, setT] = useState(0);
   const doneRef = useRef(false);
@@ -190,7 +216,7 @@ export function PenaltyScene({ takerName, keeperName, takerColor, keeperColor, r
   const interactive = !!choose && !result;
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="pen-svg" role="img" aria-label="Cobrança de pênalti">
+    <svg viewBox={`0 0 ${W} ${H}`} className="pen-svg" role={interactive ? 'group' : 'img'} aria-label={interactive ? (choose.kind === 'aim' ? 'Escolha o canto da cobrança' : 'Escolha o lado do goleiro') : 'Cobrança de pênalti'}>
       <defs>
         <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#0c1830" />
@@ -234,7 +260,7 @@ export function PenaltyScene({ takerName, keeperName, takerColor, keeperColor, r
         ZONES.map((z) => {
           const p = ZONE_POINT[z];
           return (
-            <g key={z} className="pen-zone" onClick={() => choose.pick(z)}>
+            <g key={z} className="pen-zone" {...zoneControl(AIM_LABEL[z], () => choose.pick(z))}>
               <rect x={p.x - 62} y={p.y - 42} width={124} height={80} rx={8} />
               <text x={p.x} y={p.y + 4} textAnchor="middle">{z === 'LH' || z === 'RH' ? 'canto alto' : z === 'LL' || z === 'RL' ? 'canto baixo' : z === 'CH' ? 'meio alto' : 'meio baixo'}</text>
             </g>
@@ -242,7 +268,7 @@ export function PenaltyScene({ takerName, keeperName, takerColor, keeperColor, r
         })}
       {interactive && choose.kind === 'dive' &&
         (['L', 'C', 'R'] as Dive[]).map((d, i) => (
-          <g key={d} className="pen-zone" onClick={() => choose.pick(d)}>
+          <g key={d} className="pen-zone" {...zoneControl(DIVE_LABEL[d], () => choose.pick(d))}>
             <rect x={222 + i * 119} y={122} width={118} height={130} rx={8} />
             <text x={222 + i * 119 + 59} y={192} textAnchor="middle">{d === 'L' ? 'esquerda' : d === 'R' ? 'direita' : 'ficar no meio'}</text>
           </g>
