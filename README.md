@@ -6,6 +6,16 @@ Manager de seleções históricas que roda inteiro no navegador. Você escolhe u
 - **Só cliente:** sem backend, cadastro, rede em runtime ou coleta de dados. O progresso fica no navegador (`localStorage`).
 - **Motor determinístico:** mesma seed + mesmos comandos = mesma partida (replay idêntico).
 
+## Como foi construído
+
+Projeto solo, feito com o Claude Code em fases curtas, com commit e testes passando ao fim de cada etapa.
+
+- **Escopo e regras definidos por mim:** objetivo, regras não negociáveis, stack, ordem de trabalho e critérios de pronto estão em [PROMPT_MVP.md](PROMPT_MVP.md). Produto, motor, dados e riscos estão em [docs/PLANO.md](docs/PLANO.md).
+- **QA de verdade:** uma rodada de QA abriu 8 issues (ISSUE-001 a 008), e cada uma foi corrigida com teste de regressão.
+- **Qualidade como trava:** TypeScript estrito; motor determinístico com testes golden (mesma seed dá o mesmo resultado em x64 e arm64); calibração com 20.000 jogos simulados; robôs de balanceamento; testes ponta a ponta com Playwright; CI no GitHub Actions.
+- **Seguro por desenho:** sem backend e sem dados pessoais, Content-Security-Policy restritiva, npm audit limpo e Dependabot semanal.
+- **No ar:** cada push no main publica no GitHub Pages. [Jogue aqui](https://danygregory.github.io/novo-football-manager/).
+
 ## Modos de jogo
 
 1. **Carreira de técnico:** comece com uma de 3 seleções fracas sorteadas e construa reputação Copa após Copa; depois de cada Copa chegam convites.
